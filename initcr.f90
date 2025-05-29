@@ -1937,8 +1937,6 @@ subroutine set_options()
   character*128 command
   integer nextline
   integer istat(MPI_STATUS_SIZE),ierr
-  integer :: inonNewtonian
-  real(8) :: mu_0, mu_inf, lambda, nnf
 
   call hre_reader(ihre_error) ! read some run options from hre3.dat
 
@@ -1965,9 +1963,6 @@ subroutine set_options()
   ! set default options for LES
   iuse_LES=0; idynamic=0; iadd_visc=0; Cles=0.25; ! 0.173 (Lilly)
   ifix_CsDeltag=0; CsDeltag_fix=0.d0; ! rev.1348
-  !
-  inonNewtonian=0
-  mu_0= 0.d0; mu_inf= 0.d0; lambda= 0.d0;nnf = 0.d0
   !
   itemperature=0 ! see crosst
   init_temp=0
@@ -2016,21 +2011,20 @@ subroutine set_options()
   call  MPI_BCAST(gbeta,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
 
   if (myid.eq.0) then
-   command='inonNewtonian'
+   command='iusenonNewtonian'
    call go_command(command,nextline) ! DO NOT forget to BCAST
    if (nextline.ge.1) then
-      read(hrefile(nextline),*) inonNewtonian
-      if (inonNewtonian.eq.1) then
-         read(hrefile(nextline+1),*) mu_0, mu_inf, lambda,nnf
-         write(*,*) 'inonNewtonian: mu_0, mu_inf, lambda,nnf',mu_0, mu_inf, lambda,nnf
+      read(hrefile(nextline),*) non_Newtonian_fluid
+      if (non_Newtonian_fluid.eq.1) then
+         read(hrefile(nextline+1),*) mu_0, mu_inf, lambda,
+         write(*,*) 'itemperature: fkappa, bym, gbeta ',fkappa, bym, gbeta
       end if
    end if
 end if
-call  MPI_BCAST(inonNewtonian,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-call  MPI_BCAST(mu_0,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-call  MPI_BCAST(mu_inf,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-call  MPI_BCAST(lambda,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-call  MPI_BCAST(nnf,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+call  MPI_BCAST(non_Newtonian_fluid,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+call  MPI_BCAST(fkappa,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+call  MPI_BCAST(bym,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+call  MPI_BCAST(gbeta,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
   ! --- this option generate a streak-like initial temperature field
   command='init_temp'
   call switching(command,init_temp)

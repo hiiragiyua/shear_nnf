@@ -24,6 +24,7 @@ program disk3d
    include "mpif.h"
 
   integer i, j, idum, iniflow
+
   real(8),dimension(:),allocatable :: vor, phi
   real(8),dimension(:),allocatable :: u00, w00
   real(8),dimension(:),allocatable :: hv, hg, vorwk, phiwk, dvordy, chwk
