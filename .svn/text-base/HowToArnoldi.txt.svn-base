@@ -1,0 +1,80 @@
+How to do linear stability analysis by the arnoldi process
+
+[*] compile
+
+make arnoldi
+
+[*] prepare the field to analyse
+see input_arnoldi 
+for running.
+------------------------------
+./ini/upo_5Tp.0000
+./arnoldi/arnoldi_sym5
+1.d-3 ! set small amplitude for the disturbance
+5   ! time period n,  n*Lx/(SLy)=etime
+50    ! krylov_dimension
+1.d-6 ! eps_jacobi
+--------------------------------
+
+This is the sample for the field upo_5Tp.0000
+the second line is for output file base name (filinp in hre2.dat).
+Reading hre2.dat is skipped and the parameters are set from the header and footer of the initial condition.
+set etime as an integer m, Tp=m*Lx/(SLy)
+
+Usually, you do not need to touch 1.d-3 and 1.d-6.
+
+set larger Krylov dimensions for very unstable solutions. 
+
+[*] screen output file
+========================================================
+
+ -----------------------------------------------
+    Arnoldi iteration:          50
+ -----------------------------------------------
+ Arnoldi finished, writing hh(56) vv(57) for test
+ B: Dnr Dni  0.524194888319229       0.963454224530282     
+ B: Dnr Dni  0.524194888319229      -0.963454224530282     
+ B: Dnr Dni   1.02673440098391       0.214206168370016     
+ B: Dnr Dni   1.02673440098391      -0.214206168370016     
+ B: Dnr Dni  4.409074713419205E-002  0.425888265342164     
+ B: Dnr Dni  4.409074713419205E-002 -0.425888265342164     
+ B: Dnr Dni  0.512516829604714       9.969481579557804E-002
+ B: Dnr Dni  0.512516829604714      -9.969481579557804E-002
+ B: Dnr Dni  0.556107880770762       0.000000000000000E+000
+...
+ A: sigma  (8.221900825922833E-003,9.541376315691237E-002)
+ A: sigma  (8.221900825922833E-003,-9.541376315691237E-002)
+ A: sigma  (4.242281948224859E-003,1.829776463462765E-002)
+ A: sigma  (4.242281948224859E-003,-1.829776463462765E-002)
+ A: sigma  (-7.546267882578353E-002,0.130565416240383)
+ A: sigma  (-7.546267882578353E-002,-0.130565416240383)
+
+B = exp[A t], here lam_B is the eigenvalues of Monodromy matrix (Floquet multipliers) 
+with time period fo Tp, so that 
+lama=log(lamb)/etime;    %  u(t+Tp) = \int_t^{t+Tp} f_{NS} (u) dt = g(u)
+                         %             = (dg/du)*u = B*u
+
+===========================================================
+
+[*] To plot, check ./matlab/test_arnoldi.m
+
+The above case returns, 
+arnoldi_sym5.arn        
+arnoldi_sym5_eigf.0001  
+arnoldi_sym5_eigf.0002  
+arnoldi_sym5_eigf.0003
+arnoldi_sym5_eigf.0004
+
+
+*.arn  is the Hessenberg matrix
+
+*_eigf.**** are the corresponding eigenfunctions.
+If there are complex eigenvalues as above,
+ A: sigma  (8.221900825922833E-003,9.541376315691237E-002)
+ A: sigma  (8.221900825922833E-003,-9.541376315691237E-002)
+then _eigf.0001 is for the real part and _eigf.0002 is for the complex part of the eigenfunction.
+
+ 
+
+
+

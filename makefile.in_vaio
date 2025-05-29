@@ -1,0 +1,36 @@
+###################################################################
+# include file for an individual machine by A.Sekimoto   
+# vaio-sa   (SL6.2, VirtualBox machine)
+########################################################### machine
+SYSTEM = intel #
+########################################################## compiler
+#F90 = mpif90
+F90 = h5pfc 
+# note to link with -lhdf5_fortran -lhdf5 #
+#F90_HDF5 = h5pfc 
+CMPI_LIB =
+OMP_FLAGS =
+#
+########################################################### library
+#MKLDIR = /opt/intel/composer_xe_2011_sp1.9.293/mkl/lib/intel64
+MKLDIR = /opt/intel/composer_xe_2013.1.117/mkl/lib/intel64
+HDF5LIB = /opt/hdf5_intel/lib
+FFTWLIB = /opt/fftw3.2.2/lib/
+#
+BLAS = mkl_intel_lp64 # interface library (GNU fortran)
+LAPACK = mkl_lapack95_lp64
+EXTLIBS = -L$(MKLDIR) -l$(LAPACK) -l$(BLAS) \
+-lmkl_sequential -lmkl_core -lfftw3 #-lguide -lpthread    # use sequential thread
+#-lmkl_intel_thread -lmkl_core -liomp5 -lpthread # use thread
+#-lfftw3
+EXTHDF5 = -L$(HDF5LIB)  -lhdf5_fortran -lhdf5 
+EXTFFTW = -L$(FFTWLIB) -lfftw3 -lm
+#################################################### compiler flags
+#
+F90OPT = -c -assume byterecl 
+LFOPT  = $(EXTLIBS) $(EXTHDF5) 
+#
+F90DEBUG =  -c -g -C -assume byterecl 
+LFDEBUG  = -v -g -static -C $(EXTLIBS) $(EXTHDF5)
+#
+##############################################################  END

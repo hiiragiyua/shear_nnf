@@ -1,0 +1,146 @@
+-----------------------------------------------------------
+|                 Homogeneous Shear Flow                  |
+-----------------------------------------------------------
+starting with the 3D code from yoshinori Mizuno in Monash.
+Note: rescale factor should be 1.d0 or removed.
+Atsushi SEKIMOTO, 11th/July/2011
+-----------------------------------------------------------
+changing to uniform grid in y-direction.
+Atsushi SEKIMOTO, 11th/July/2011
+=> completed 12th/July/2011
+-----------------------------------------------------------
+makefile is changed to be able to use cpp flags in order to use #line
+for compile:
+>>make tmp
+>>make disk3d 
+Atsushi SEKIMOTO, 21th/July/2011
+-----------------------------------------------------------
+Runge-Kutta scheme is modified to use Spalart , et al compact 
+Atsushi SEKIMOTO, November/2011
+-----------------------------------------------------------
+you can swithch explicit Runge-Kutta scheme and semi-implicit one
+by: explicit = 0 or 1 (in cross.f90)
+------------------------------------------------------------
+makefile is fixed to use hepta-diagonal solver for compact finite
+difference, since explicit RK scheme is cheaper.
+Atsushi SEKIMOTO, November/2011
+------------------------------------------------------------
+BUG FIXED: for explicit = 1, the factor of visc3d for zeromode related to the RK3 coefficients, is multiplied by gama(rkstep), 
+which means using the different Reynolds number by tha factor of (1/gama) only for zerozero-mode. 
+A.S. 12/13, 2011 (rev.219)
+------------------------------------------------------------
+xoffb, xofft should be scaled when reading the fields with different meshes in x and different allp.
+A.S. 12/21, 2011 (rev.226)
+
+add tags/shear_rev224.tgz for sending Mr.Dong Sewei.
+------------------------------------------------------------
+cleaning-up 
+spectra is included in .sta2 (Note: use readstat2.m to read in matlab)
+(rev.263) A.S. 2/2 2012
+------------------------------------------------------------
+the tmp array used in diffyc.f90 is allocated.
+(*) add wk1dr, wk1dr for visc3d (to allocate ddu in visc3d )
+(*) uc, duc, pc in derivy( ) is allocated.
+(*) ur is added in the argument of matvecNcyclic()
+(rev.264) A.S. 2/2  2012
+------------------------------------------------------------
+(*) La(N),Lb(N),Lc(N),Dd(N) are changed to real*8 => roughly 10% speed-up, and the screen output is completely same with complex*16 version.
+    (Note _penta version was already real*8 for (semi-)diagonal coefficients)
+(*) visc3d loop is decomposed for computing vor and phi individually, but not so effective speed-up (roughly 1 % )
+(rev.265) A.S. 2/2  2012
+------------------------------------------------------------
+non-blocking all-to-all communication is added but it was slow on nauja.
+(switch to use change.allfac_nonblocking.f in makefile)
+(rev.269) A.S. 2/3  2012
+------------------------------------------------------------
+(*) xoffb, xofft of initial condition is written in screen output.
+(rev.274) A.S. 2/10  2012
+(*) add xofft, xoffb to UNER.
+(rev.279) A.S. 2/16  2012
+(*) tiny bug fixed: xoffb -> xofft in readwrite.f90
+(rev.282) A.S. 2/20  2012
+------------------------------------------------------------
+Coding to fine travelling solutions is started.
+(*) add_force is fixed.
+(rev.288) A.S. 2/29 2012
+------------------------------------------------------------
+(*) bugfixed, viscous CFL is taken for a consideration.
+    apply it only for explicit case.
+(rev.293) A.S. 3/2 2012
+------------------------------------------------------------
+(*) bug fixed spectrum. => stored in 'sta3' file
+(rev.294) A.S. 3/6 2012
+------------------------------------------------------------
+conv.90 is updated: the module name is renamed to 'convh5' in makefile.  
+Note: *.up.h5, *.oz.h5 does not include mean shear.
+(rev.306) A.S. 3/14 2012
+------------------------------------------------------------
+GMRes tools are started to be implemented.
+(rev.315) A.S. 3/28 2012
+--> (rev.339) arnoldi is implemented to use... (not tested)
+------------------------------------------------------------
+Newton-GMRes method is started to be implemented.
+(rev.341) A.S. 4/26 2012
+--> not done...
+------------------------------------------------------------
+(*) bug fixed for TG_ini. (used be stacked to run
+ on vulcano because of this bug.)
+(rev.344-348) A.S. 5/3 2012
+------------------------------------------------------------
+The optimization is started 
+(*) fou3D.f does not use transposing now. 
+(*) add 2d array for FFT. (not to affected )
+(rev.358)
+(*) optimizing 'hvhg'
+(*) now all the proc. computes soving u00 and w00
+(rev.359-- rev.379) A.S.
+------------------------------------------------------------
+(*) add option to skip _addshear in derivy (ias=1: _addshear)
+==> NOTE: the difference is O(10**-16) but oscilated.
+(rev.382, 384) 5/14 2012 A.S.
+------------------------------------------------------------
+shb,sht,shwkb,shwkt are replaced by 1d arrays.
+(rev.385) 5/16 2012 A.S.
+------------------------------------------------------------
+(*) replacing with lapack routines. 
+    (but not faster, because it is just copying...)
+(*) fftw is implemented.
+(rev.389-395) 5/17 2012 A.S.
+
+NOTE: pack0 found to be affected by optimization higher level of -O1.
+So, fixed to use a temporal plane.
+(rev.418)
+
+------------------------------------------------------------
+(*) hepta solver is optimizaing. the inverse of diagonal elements Ddm1
+     is implemented.
+     Note that: the difference are O(10^-14)
+(rev.394) 5/17 2012 A.S.
+------------------------------------------------------------
+(*) chagne is improved to use ieor. (please switch 'change.allfac_ieor.f' 
+    in makefile). 
+    change_mod.f (from J.J and modified to use the zero-started pointers) 
+    is comparable but it may be slow ? (only on vulcano) 
+(*) The divisor of numerop is checked in initcr.f90.
+( --rev.407) 5/24 2012 A.S.
+(*) MPI_VECTOR is set in the routine comm_setup()
+(*) In future, set up for AlltoAllv is done in comm_setup(). 
+    NOTE: do not use change.allfac_alltoall.f, it is not implemented!!.
+(*) MPI_VECTOR (myslice) seems to be buggy, 
+    when i have added some allocation after myslice for MPI_ALLTOALLV: 
+    scount(:),sdispl(:),rcount(:),rdispl(:)
+    the communication does not work well. 
+    (it may be a problem on my MPI enviroment on nauja.))
+(rev.411) 5/26 2012 A.S.
+----------------------------------------------------------------------
+(rev. 419) the statistics is a little bit different with rev295.
+      (check icase82-3). All of the r.m.s. values are slightly bigger 
+      than before (rev.295). 
+(rev. 425-426) add spline interpolation in y
+6/8 2012 A.S.
+----------------------------------------------------------------------
+(rev. 428) checked with RDT solutions. (both for k0y=0 and for k0y=1).
+      Take care with the complex conjugate modes in x-dir.
+
+6/12 2012 A.S.
+----------------------------------------------------------------------

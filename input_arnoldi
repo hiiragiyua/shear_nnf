@@ -1,0 +1,6 @@
+./ini/upo_5Tp.0000
+./arnoldi/arnoldi_sym5
+1.d-3 ! set small amplitude for the disturbance
+5   ! etime
+50    ! krylov_dimension
+1.d-6 ! eps_jacobi

@@ -1,0 +1,57 @@
+CC This file contains the input data to be used
+CC in the 3-D DNS code for the planetary disk3d
+CC Structure of the present file:
+CC 1) run size 
+CC 2) Parameters and utilities
+CC 3) File names
+CC-----------------------------------------------------------------------
+CC 1) DIMENSIONS
+CC-----------------------------------------------------------------------
+CC    mgalx      my      mgalz      ik2ki    ki2ik  
+CC                                 (factors of mgalz )
+CC                                   < 1MB is recommended
+CC       *         *         *         *        *
+CC  **** minimin ****
+CC       192        769       192         32       64
+CC  **** shortmini ****
+CC        96        769       384         32       64
+CC
+        64        64      48         1      1 
+CC-----------------------------------------------------------------------
+CC 2)PARAMETERS used in the code
+CC-----------------------------------------------------------------------
+CC
+CC      Re       alp       Ly/pi      gam        shear      chi       CFL
+CC  Reynolds   x wave #             z wave #    (0 or 1)  (rotation)
+CC    (1/nu)
+CC       *         *         *         *           *          *         *
+CC
+CC     4.7e2      1.0       0.63662     1.0         1        .0        0.8
+     2.6e3      1.0       0.63662     2.0         1        .0        0.6
+CC
+CC  **** minimin   Re=4.7e4 ****
+CC     3.0e4       8.0       0.57296     16.0         0        .25        0.5
+CC  **** shortmini Re=4.6e4 ****
+CC     1.0e4       15.0       0.57296     8.0         0        .25        0.5
+CC
+CC # steps   #step ims  #step hist   read i.c.(1)    ifile  
+CC    nstep    nimag      nhist      create (0)     for output
+CC       *         *         *          *              *
+CC       50001      2000      10           1             0
+           11         10      2           0             0
+CC
+CC     only useful if read = 0, but always needed
+CC     pmesp           uprime
+CC   spec. peak        of i.c.
+CC       *               *
+         15             .1
+CC-----------------------------------------------------------------------
+CC 3)FILE NAMES used in the code
+CC-----------------------------------------------------------------------
+CC file output root, max 80 char.
+CC/home/yoshi/data/nowallch_vp/shear
+./pool/var
+CC
+CC  input file, max 80 char. (only useful if read =1 )
+CC/home/yoshi/data/nowallch_vp/nowallch_cp7.064
+./pool/var.000

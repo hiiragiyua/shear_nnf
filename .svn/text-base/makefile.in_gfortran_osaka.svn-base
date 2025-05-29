@@ -1,0 +1,58 @@
+###################################################################
+# include file for an individual machine by A.Sekimoto   
+#    ltrac mec (local machine)
+########################################################### machine
+SYSTEM = gfortran, take care for endian #
+########################################################## compiler
+F90 = h5pfc 
+#
+CMPI_LIB =
+OMP_FLAGS =
+#
+########################################################### library
+LAPACKDIR = /usr/lib/
+MKLDIR = /opt/intel/Compiler/11.1/056/mkl/lib/em64t/
+HDF5LIB = /usr/local/hdf5_gfortran/lib/ 
+HDF5INC = /usr/local/hdf5_gfortran/include/ 
+FFTWINC = /usr/include/
+#
+BLAS = blas # interface library (GNU fortran)
+LAPACK = lapack
+EXTLIBS = -L$(MKLDIR) -l$(LAPACK) -l$(BLAS) 
+EXTHDF5 = -L$(HDF5LIB) -lhdf5
+EXTFFTW = -I$(FFTWINC) -lfftw3 
+#################################################### compiler flags
+#
+#F90OPT = -c -O3 -opt-report -warn noalignments -assume byterecl 
+#LFOPT  = -O3 $(EXTLIBS) $(EXTHDF5) 
+# -check bounds
+#F90OPT = -c -O3  -check bounds 
+#F90OPT = -c -O3  -assume byterecl
+#LFOPT  = -O3  $(EXTLIBS) $(EXTHDF5) 
+#
+#F90OPT = -c -fbounds-check  $(EXTFFTW) # for gfortran
+F90OPT = -c -O3 -fconvert='little-endian' $(EXTFFTW)  
+LFOPT  = -O3 -fconvert='little-endian'  $(EXTLIBS) $(EXTFFTW) $(EXTHDF5) 
+#
+#F90OPT = -c -O3 -axSSE4.2  -assume byterecl
+#LFOPT  = -O3 -axSSE4.2  $(EXTLIBS) $(EXTHDF5) 
+#
+#F90OPT =  -c -O0 -assume byterecl 
+#LFOPT  =  -O0 $(EXTLIBS) $(EXTHDF5) $(EXTFFTW)
+#
+#F90OPT = -pg -c -assume byterecl -vec-report3
+#LFOPT  = -pg $(EXTLIBS) $(EXTHDF5) 
+#
+#F90OPT = -prof-gen -prof-file prof_gen_ifort.txt -c -assume byterecl 
+#LFOPT  = -prof-gen -prof-file prof_gen_ifort.txt $(EXTLIBS) $(EXTHDF5) 
+# feedback from prof-gen
+#F90OPT = -prof-use -c -assume byterecl 
+#LFOPT  = -prof-use $(EXTLIBS) $(EXTHDF5) 
+#
+F90DEBUG =  -c -g -C -assume byterecl
+LFDEBUG  = -v -g -static -C $(EXTLIBS) $(EXTHDF5)
+#
+F77=$(F90)
+F77FLAGS = $(F90OPT) 
+LFLAGS = $(LFOPT)
+##############################################################  END

@@ -1,0 +1,216 @@
+###################################################################
+#           Makefile for  DNS CODE
+###################################################################
+########################################################## switch
+#include makefile.in_picasso
+#include makefile.in_sofia
+include makefile.in_sofia_gfortran
+#include makefile.in_vermeer
+#include makefile.in_vermeer_gfortran
+#include makefile.in_mac_seki
+#include makefile.in_oakforest_2
+#include makefile.in_ito-intel 
+########################################################### machine
+#SYSTEM = intel
+##########################################################cpp flags
+#use the debug flags if $(DEBUG)='yes':
+ifeq ($(DEBUG),yes)
+   #echo "DEBUG = yes"
+   F90FLAGS = $(F90DEBUG)
+   LFLAGS = $(LFDEBUG)
+else
+   #echo "DEBUG = no"
+   F90FLAGS = $(F90OPT)
+   LFLAGS = $(LFOPT)
+endif
+##########################################################cpp flags
+CPP = /usr/bin/cpp
+CPPFLAGS = -P -traditional-cpp -DTEMPERATURE \
+-DNDEBUG
+#
+#
+# DEBUG            some output for checking
+#
+###################################################################
+INIT = .
+SRCDIR = $(INIT)
+OBJ=$(INIT)
+OBJDIR = $(OBJ)
+CALCDIR =$(INIT)
+#ifdef CALCDIR
+#	@echo disk3d will be built in $CALCDIR!!!!! 
+#else
+#CALCDIR =$(INIT)
+#endif
+OBJECTS_MAIN= $(OBJ)/mod.o $(OBJ)/main.o $(OBJECTS)
+OBJECTS_CONVH5= $(OBJ)/mod.o $(OBJ)/convh5.o $(OBJECTS)
+OBJECTS_SHOOT= $(OBJ)/mod.o $(OBJ)/shoot_shear.o $(OBJECTS)
+OBJECTS_STAT= $(OBJ)/mod.o $(OBJ)/compute_stat.o $(OBJECTS)
+
+OBJECTS_TEST1= $(OBJ)/mod.o $(OBJ)/driver1.o $(OBJECTS)
+
+OBJECTS_ARNOLDI= $(OBJ)/mod.o $(OBJ)/gmres_modules.o \
+$(OBJ)/arnoldi_shear.o \
+$(OBJ)/gmres_shear.o $(OBJECTS)
+
+OBJECTS_DIFFP= $(OBJ)/mod.o $(OBJ)/gmres_modules.o \
+$(OBJ)/diff_period.o \
+$(OBJ)/gmres_shear.o $(OBJECTS)
+
+OBJECTS_DIFFUPO= $(OBJ)/mod.o $(OBJ)/gmres_modules.o \
+$(OBJ)/diff_upo.o \
+$(OBJ)/gmres_shear.o $(OBJECTS)
+
+OBJECTS_DIFFUPOPH= $(OBJ)/mod.o $(OBJ)/gmres_modules.o \
+$(OBJ)/diff_upo_phase.o \
+$(OBJ)/gmres_shear.o $(OBJECTS)
+
+OBJECTS_NEWTON= $(OBJ)/mod.o $(OBJ)/gmres_modules.o \
+$(OBJ)/newton_shear.o \
+$(OBJ)/gmres_shear.o $(OBJECTS)
+
+OBJECTS = \
+$(OBJ)/initcr.o\
+$(OBJ)/readwrite.o\
+$(OBJ)/readwrite_hdf5.o\
+$(OBJ)/readwrite_t_hdf5.o\
+$(OBJ)/cftdoublew.o\
+$(OBJ)/rftdoublew.o\
+$(OBJ)/fou3D_thread.o\
+$(OBJ)/cross.o\
+$(OBJ)/crosst.o\
+$(OBJ)/operators.o\
+$(OBJ)/change.allfac_ieor.o\
+$(OBJ)/diffy_shear_hepta.o\
+$(OBJ)/filter_shear_hepta.o\
+$(OBJ)/timing.o
+# ----------------------------------------------------------------------------
+# 
+# diffy4a4 is for non-uniform grids from the original Yoshi's code.
+# diffy_shear_hepta.o is hepta-diagonal solver for 1st, 2nd derivatives and helmholtz solver.
+#  _hepta:  modified for 2nd derivative to use n=m=3 (6th-order with 3 point spectral) 
+# _hepta_SumK: is more accurate version using the error free transformation (testing, rev1577)
+#
+# diffy_shear_penta.o is penta-diagonal solver for 1st, 2nd derivatives 
+#     (12th, 10th-order,respectively)     and hept-. for helmholtz solver.
+# diffy_shear_penta_hepta.o is penta-diagonal solver for 1st deriv., 
+#                        hepta-diagonal solver for 2nd derivatives 
+#     (12th-order for both)   and hept-. for helmholtz solver.
+#
+# ----------------------------------------------------------------------------
+#
+# $(OBJ)/change.allfac_nonblocking.o 
+# is for nonblocking communication usin MPI_ISEND and MPI_IRECV
+# this nonblocking version [rev.268] is much slower than blocking commu.
+#
+# change.allfac_ieor.o is sekimoto version of new point-point commu. using 'ieor'  [rev.399]
+# 
+# change_mod.o is taken from Prof.Jimenz's code, modified for double precision
+#    for the zero-start-pointer, the same with change.allfac_ieor.o or slightly slower performance.
+#    [rev.402]
+#
+# change.allfac_nonblocking_ieor2.o is much slower than change.allfac_ieor.o, [rev.405]
+# 
+# change.allfac_alltoall.o does not work, (this is not implemented). 
+# ----------------------------------------------------------------------------
+# for optimization, please check the reports
+# mpif90 -c -cpp -O3 -opt-report -opt-report-file=optrepo_rft rftdouble.f
+#
+# ----------------------------------------------------------------------------
+#  rftdouble.f and cftdouble.f are replacable with fftw
+#  by rftdoublew.F and cftdouble.F (rev.388)
+#  (use fou3D.f)
+# -----
+#  fou3D_thread.f (2D threaded FFTw) 
+#  replace with fou3D.f above, and initialise by calling ffti() in initcr.f90
+#   
+#################################################### compile 
+.SUFFIXES: .o .mod .for .f .F .f90 .h
+###############################
+.for.o:
+	cp $< ./tmp/$<
+	$(F90) $(F90FLAGS)  ./tmp/$<
+.f.o:
+	$(CPP) $(CPPFLAGS)  $< > ./tmp/$*.f
+	$(F90) $(F90FLAGS)  ./tmp/$*.f
+.F.o:
+	cp $< ./tmp/$<
+	$(F90) $(F90FLAGS)  ./tmp/$<      
+.f90.o:
+	$(CPP) $(CPPFLAGS)  $< > ./tmp/$*.f90
+	$(F90) $(F90FLAGS)  ./tmp/$*.f90
+############################################################ build
+# main
+disk3d	:printmsgA tmp $(OBJECTS_MAIN)
+	@echo Linking...
+	@$(F90) -o $(CALCDIR)/$@ $(OBJECTS_MAIN) $(LFLAGS)
+	@echo $(CALCDIR)/$@ 
+	@echo built, congratulations.
+# convert ome2 and lap.v => ur,vr,wr,pr (o1r,o2r,3r,qcrir)
+# conv	:printmsgA tmp $(OBJECTS_CONV)
+convh5	:printmsgA tmp $(OBJECTS_CONVH5)
+	@echo Linking...
+	@$(F90) -o $(CALCDIR)/$@ $(OBJECTS_CONVH5) $(LFLAGS)
+	@echo $(CALCDIR)/$@ 
+	@echo built, congratulations.
+#
+shoot	:printmsgA tmp $(OBJECTS_SHOOT)
+	@echo Linking...
+	@$(F90) -o $(CALCDIR)/$@ $(OBJECTS_SHOOT) $(LFLAGS)
+	@echo $(CALCDIR)/$@ 
+	@echo built, congratulations.
+
+getstat	:printmsgA tmp $(OBJECTS_STAT)
+	@echo Linking...
+	@$(F90) -o $(CALCDIR)/$@ $(OBJECTS_STAT) $(LFLAGS)
+	@echo $(CALCDIR)/$@ 
+	@echo built, congratulations.
+
+### build for newton_gmres or arnoldi
+arnoldi	:printmsgA tmp $(OBJECTS_ARNOLDI)
+	@echo Linking...
+	@$(F90) -o $(CALCDIR)/$@ $(OBJECTS_ARNOLDI) $(LFLAGS)
+	@echo $(CALCDIR)/$@ 
+	@echo built, congratulations.
+diffp	:printmsgA tmp $(OBJECTS_DIFFP)
+	@echo Linking...
+	@$(F90) -o $(CALCDIR)/$@ $(OBJECTS_DIFFP) $(LFLAGS)
+	@echo $(CALCDIR)/$@ 
+	@echo built, congratulations.
+diffu	:printmsgA tmp $(OBJECTS_DIFFUPO)
+	@echo Linking...
+	@$(F90) -o $(CALCDIR)/$@ $(OBJECTS_DIFFUPO) $(LFLAGS)
+	@echo $(CALCDIR)/$@ 
+	@echo built, congratulations.
+diffuph	:printmsgA tmp $(OBJECTS_DIFFUPOPH)
+	@echo Linking...
+	@$(F90) -o $(CALCDIR)/$@ $(OBJECTS_DIFFUPOPH) $(LFLAGS)
+	@echo $(CALCDIR)/$@ 
+	@echo built, congratulations.
+newton	:printmsgA tmp $(OBJECTS_NEWTON)
+	@echo Linking...
+	@$(F90) -o $(CALCDIR)/$@ $(OBJECTS_NEWTON) $(LFLAGS)
+	@echo $(CALCDIR)/$@ 
+	@echo built, congratulations.
+### for debug rft
+TEST1	:printmsgA tmp $(OBJECTS_TEST1)
+	@echo Linking...
+	@$(F90) -o $(CALCDIR)/$@ $(OBJECTS_TEST1) $(LFLAGS)
+	@echo $(CALCDIR)/$@ 
+	@echo built, congratulations.
+### buid all
+all:	disk3d convh5 arnoldi newton
+###################################################################
+tmp:
+	mkdir tmp
+#
+clean:
+	rm -f *.o *.mod *.for disk3d conv convh5 arnoldi newton
+	rm -r ./tmp
+########################################################## message
+printmsgA :
+	@echo
+	@echo Building disk3d for $(SYSTEM)
+	@echo Compiler flags : $(F90FLAGS)
+	@echo Linker   flags : $(LFLAGS)
+###################################################### end of file

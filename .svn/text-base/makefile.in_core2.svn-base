@@ -1,0 +1,34 @@
+###################################################################
+# include file for an individual machine by A.Sekimoto   
+#    nauja.dmt.upm.es (local machine)
+########################################################### machine
+SYSTEM = intel 
+########################################################## compiler
+#F90 = mpif90
+F90 = h5pfc 
+#
+CMPI_LIB =
+OMP_FLAGS =
+#
+########################################################### library
+LAPACKDIR = /usr/lib/
+MKLDIR = /opt/intel/composerxe-2011.5.220/mkl/lib/ia32
+HDF5LIB = /usr/local/hdf5-1.8.8/build-intel/lib/
+#
+BLAS = mkl_intel # interface library (GNU fortran)
+LAPACK = mkl_lapack95
+EXTLIBS = -L$(MKLDIR) -l$(LAPACK) -l$(BLAS) \
+-lmkl_sequential -lmkl_core #-lguide -lpthread    # use sequential thread
+#-lmkl_intel_thread -lmkl_core -liomp5 -lpthread # use thread
+#-lfftw3
+EXTHDF5 = -L$(HDF5LIB) -lhdf5_fortran -lhdf5 
+#################################################### compiler flags
+#
+F90OPT = -c -assume byterecl 
+LFOPT  = $(EXTLIBS) 
+#LFOPT  = $(EXTLIBS) $(EXTHDF5) 
+#
+F90DEBUG =  -c -g -C -assume byterecl 
+LFDEBUG  = -v -g -static -C $(EXTLIBS) $(EXTHDF5)
+#
+##############################################################  END

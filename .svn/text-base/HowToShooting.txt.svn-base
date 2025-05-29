@@ -1,0 +1,8 @@
+[*] compile 
+
+make shoot
+
+[*] prepare, the solution and eigen function computed by arnoldi. 
+[*] run using the following input command for shooting mode=1
+
+input_shoot_mode1

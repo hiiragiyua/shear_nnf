@@ -1,0 +1,104 @@
+idump_mode ! 1, for R&M comparison (initial shearing) 2, constant-time-interval dump file
+0
+10 10
+
+
+!symmetry     ! 5: shift-refrection
+              ! 6: mirror-symmetry
+              ! 7: rotation-refrection for varicose (UPO4) 
+              ! 8: rotation-refrection for sinuous 
+iadd_sym
+0
+0.d0 0.d0  ! sym_shiftx,sym_shiftz ! 
+
+iadd_force ! (1, roll; 2, 2-pair roll) or (-1, shifting by forcing)
+0
+0.d0 1.d0 0.d0
+
+iadd_damping
+0
+0.1d0 0.5d0 ! damp_up, damp_aa (scaled by Lz)
+
+explicit
+1
+
+iuse_LES
+0
+0 0 0.25 ! idynamic, 0:smagorinsky 1:dynamic-Smagorinsky ! iadd_visc ! Cs
+
+ifix_CsDeltag
+0
+
+iread_footer
+1
+
+iskip_screenout
+1
+
+iread_hdf5
+1
+
+iwrite_hdf5
+1
+
+init_temp
+0
+
+itemperature
+0
+4.d-6 1.d0 1.d0   ! fkappa, bym, gbeta
+
+
+-----------------------------------------------------------------------
+isol_mode
+3     ! 3,UPO; 4,RPOxz; 5,UPOt; 6,RPOxzt
+2     !  timep
+0.d0  0.d0  0.d0 !  shiftx0, shifty0, shiftz0
+50   !  k_gmres
+1.d-3  1.d-6  1.d-12  ! eps_gmresk,eps_jacobi,eps_newton
+1.d0  1.e-26   !delta_ini, hs_cut
+
+inorm
+0
+
+iskip_save
+1
+
+%% take care for the cpara='Rez', which changes re and the factor Lz*Lz will be multiplied.
+
+iarclength
+1   ! 1, use arclength; -1, simply change the parameter.
+./pool/var.0000
+0.1d0 Ayz
+10
+
+iopt_matvec
+1
+
+iuse_ffty
+0
+
+iuse_us
+1
+
+iuse_mpc
+0
+3
+
+iremove_singularity
+0
+
+iuse_scaling
+0
+
+ifilter
+0
+
+iuse_compensatory_norm
+0
+2.5d0
+
+iuse_QR_orth
+1
+
+HREEND

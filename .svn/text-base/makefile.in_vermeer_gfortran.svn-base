@@ -1,0 +1,52 @@
+###################################################################
+# include file for an individual machine by A.Sekimoto   
+########################################################### machine
+SYSTEM = gfortran + parallel hdf5  #
+########################################################## compiler
+F90 = h5pfc 
+#
+CMPI_LIB =
+OMP_FLAGS =
+#
+########################################################### library
+#LAPACKDIR = /usr/lib/
+HDF5LIB = /opt/hdf5_gfortran/lib/
+HDF5INC = /opt/hdf5_gfortran/include/
+FFTWINC = /usr/include/
+#
+BLAS = blas # interface library (GNU fortran)
+LAPACK = lapack
+EXTLIBS = -l$(LAPACK) -l$(BLAS) 
+EXTHDF5 = -L$(HDF5LIB) 
+EXTFFTW = -I$(FFTWINC) -lfftw3 -lfftw3_omp 
+################################################### compiler flags
+#
+#OPTIONS= -fbounds-check -fconvert='little-endian' # for gfortran
+OPTIONS= -O3 -fopenmp -fconvert='little-endian' # for gfortran
+#OPTIONS= -check bounds
+F90OPT = -c $(OPTIONS)  $(EXTHDF5) $(EXTFFTW) 
+LFOPT  = $(OPTIONS) $(EXTLIBS) $(EXTHDF5) $(EXTFFTW)
+#
+#F90OPT = -c -O3 -axSSE4.2  -assume byterecl
+#LFOPT  = -O3 -axSSE4.2  $(EXTLIBS) $(EXTHDF5) 
+#
+#F90OPT =  -c -O0 -assume byterecl 
+#LFOPT  =  -O0 $(EXTLIBS) $(EXTHDF5) $(EXTFFTW)
+#
+#F90OPT = -pg -c -assume byterecl -vec-report3
+#LFOPT  = -pg $(EXTLIBS) $(EXTHDF5) 
+#
+#F90OPT = -prof-gen -prof-file prof_gen_ifort.txt -c -assume byterecl 
+#LFOPT  = -prof-gen -prof-file prof_gen_ifort.txt $(EXTLIBS) $(EXTHDF5) 
+# feedback from prof-gen
+#F90OPT = -prof-use -c -assume byterecl 
+#LFOPT  = -prof-use $(EXTLIBS) $(EXTHDF5) 
+#################################################
+#
+F90DEBUG =  -c -g -C -assume byterecl
+LFDEBUG  = -v -g -static -C $(EXTLIBS) $(EXTHDF5)
+#
+F77=$(F90)
+F77FLAGS = $(F90OPT) 
+LFLAGS = $(LFOPT)
+##############################################################  END

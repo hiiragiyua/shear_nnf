@@ -1,0 +1,1623 @@
+!=======================================================================
+!       PAQUETE DE SUBRUTINAS PARA DIFERENCIAS FINITAS COMPACTAS
+!       O.F, nov 2002
+!       S.H. may 2005
+!       J.J. july 2007,  uniform grid for disk
+!       A.S. August 2011, uniform grid for shear-periodic (disk) 
+!                         using only central part.
+!=======================================================================
+module yderiv
+  ! rh1h, rh2h are from rev.823 to update dy at every NEWTON step
+  real*8, allocatable:: pr1(:), rh1(:), rh1h(:) ! (constant) B u' = A u
+  real*8, allocatable:: pr2(:), rh2(:), rh2h(:) ! (constant) B u''= A u
+  real*8, allocatable:: lapmat(:)      !  (A+ B k2*I) u = B Rhs
+
+  !7*my real*8  + 3*my complex*16 for Cholesky decomposition
+  ! c1r => first derivatives, c2r => second derivatives, chr => helmholtz
+  !real*8, allocatable:: c1r(:,:),c2r(:,:),chr(:,:) 
+  !complex*16, allocatable:: c1i(:,:),c2i(:,:),chi(:,:) 
+
+  real*8, allocatable:: a1(:),b1(:),c1(:),d1(:),d1m1(:)
+  !complex*16, allocatable:: a1(:),b1(:),c1(:),d1(:)
+  complex*16, allocatable:: e1(:),f1(:),g1(:) 
+  complex*16, allocatable:: ce1(:),cf1(:),cg1(:)
+
+  real*8, allocatable:: a2(:),b2(:),c2(:),d2(:),d2m1(:)
+  !complex*16, allocatable:: a2(:),b2(:),c2(:),d2(:)
+  complex*16, allocatable:: e2(:),f2(:),g2(:) 
+  complex*16, allocatable:: ce2(:),cf2(:),cg2(:)
+
+  real*8, allocatable:: ah(:),bh(:),ch(:),dh(:),dhm1(:)
+  !complex*16, allocatable:: ah(:),bh(:),ch(:),dh(:)
+  complex*16, allocatable:: eh(:),fh(:),gh(:) 
+  complex*16, allocatable:: ceh(:),cfh(:),cgh(:)
+
+  complex*16, allocatable:: wk1(:), wk2(:), ur(:) 
+  complex*16, allocatable:: uc(:), duc(:), pc(:)
+  real*8  h      
+  integer N1,N2, my
+
+end module yderiv
+
+module eft_buff
+  
+  ! for eft
+  real*8, allocatable :: xy(:)
+  complex*16, allocatable :: xyc(:), xx(:), yy(:)
+
+end module eft_buff
+
+!**********************************************************************
+! prederiv1:
+!
+! Computes the coefficients for the compact finite differences
+!     for the first derivatives of bandwidth 2*N+1
+!     including the schemes for the end points. 
+! References:  Disk notebook ctr 2007, pp. 9-14
+!     and maple \javi\wall\sergio\pade7.ms   
+!     and       \javi\wall\sergio\pade7end_sp.ms   
+!
+! Scheme is: sum_{j=-N}^N a_ij f'_{i+j} = 
+!            sum_{j=-N}^N b_ij f_{i+j}
+!
+! At the ends, the inner band-width is maintained,
+!    but outer limit is j=-i (for j=0:N-1)
+! 
+! Although this is a general routine it is optimized for N=3
+!    It uses in general M spectral points to dispersion relation
+!       at khat = pi*kap(1:M).  Here M=3.
+!
+!*********************************************************************
+subroutine prederiv1
+  use yderiv
+  implicit none
+
+  integer N, M
+  integer,allocatable:: jj(:)
+  real*8, allocatable:: mat(:,:),vec(:),kap(:)
+
+  integer j,k,kk,kp
+  real*8  pi
+  complex*16 zrr,zii
+
+  ! ----------- define overall parameters ----
+  N=3    ! semi-band width
+  M=3    ! number of spectral points
+  allocate (kap(M))
+  kap(1) = 0.5d0
+  kap(2) = 0.9d0
+  kap(3) = 5d-1*(kap(1)+kap(2))
+  pi=4d0*datan(1d0)
+  kap = kap*pi
+  !write(*,*) '  prederiv1, semi-band width: rhs 3, lhs 3 (spectral hepta-CFD)'
+  allocate ( pr1(-N:N), rh1(-N:N), rh1h(-N:N) )
+  allocate ( a1(my),b1(my),c1(my),d1(my),d1m1(my))
+  allocate ( e1(my),f1(my),g1(my),ce1(my),cf1(my),cg1(my) )
+  !write(*,*) '  prederiv1: allocated'
+  pr1 = 0d0; rh1 = 0d0; rh1h = 0d0
+  a1  = 0d0; b1  = 0d0; c1  = 0d0; d1 = 0d0; d1m1 = 0.d0
+  e1  = dcmplx(0d0); f1  = dcmplx(0d0); g1  = dcmplx(0d0)
+  ce1 = dcmplx(0d0); cf1 = dcmplx(0d0); cg1 = dcmplx(0d0)
+  N1  = N
+  !-----------------------------------------------------------------------
+  !     central part
+  ! ----------------------------------------------------------------------
+  allocate (mat(2*N, 2*N), vec(2*N), jj(N))
+  !write(*,*) '  prederiv1: allocated'
+  vec = 0d0
+  mat = 0d0
+  do j=1,N
+     jj(j) = j
+  enddo
+
+  do k=1,2*N-M            ! order 2*k-1 
+     kk = 2*k-1
+     mat(k,1:N)     = dfloat(kk*jj**(kk-1))    
+     mat(k,N+1:2*N) = -dfloat(jj**kk)      
+  enddo
+  vec(1)            = -0.5d0 ! the first-order derivative at j=0
+
+  do k=1,M                   ! the spectral points
+     mat(2*N-M+k,1:N)     =  kap(k)*dcos(kap(k)*dfloat(jj))    
+     mat(2*N-M+k,N+1:2*N) = -dsin(kap(k)*dfloat(jj))
+     vec(2*N-M+k)         = -0.5d0*kap(k)  
+  enddo
+     
+  call gaussj(mat,2*N,2*N,vec,1,1)
+
+  do j=1,N
+     rh1h( j) =  vec(N+j) !a
+     rh1h(-j) = -vec(N+j) !a
+     pr1( j) =  vec(j) !b
+     pr1(-j) =  vec(j) !b
+  enddo
+  rh1h(0) = 0.d0 
+  pr1(0) = 1.d0 
+
+  !write(*,*) '  check pr1=',pr1 !OK
+  !write(*,*) '  check rh1h=',rh1h !OK
+
+  deallocate (kap,mat,vec,jj)
+
+  !-----------------------------------------------------------------------
+  !
+  !       end points
+  !       mixed order and spectral, look in notebook
+  !       only here for M=3 spectral points
+  !   2011-Aug: removed for shear-periodic
+  !-----------------------------------------------------------------------
+  !
+  !  ------ scale and prefactor 
+  rh1 = rh1h/h
+  zrr=dcmplx(1.0d0,0.d0)
+  call modChol7cyclic_cmplx(a1,b1,c1,d1,d1m1,e1,f1,g1,ce1,cf1,cg1,pr1,my,zrr)
+  !  shear will be included by calling modChol_addshear() in each time step. 
+  !  call bandec7(pr1,my)
+  !write(*,*) 'a1',a1 
+  !write(*,*) 'b1',b1 
+  !write(*,*) 'c1',c1 
+  !write(*,*) 'd1',d1,'d1m1',d1m1 
+  !write(*,*) 'diff1',d1 - 1.d0/d1m1 
+  !write(*,*) 'e1',e1 
+  !write(*,*) 'f1',f1 
+  !write(*,*) 'g1',g1 
+  
+end subroutine prederiv1
+
+!**********************************************************************
+! prederiv2:
+!
+! Computes the coefficients for the compact finite differences
+!     for the second derivatives of bandwidth 2*N+1
+!     including the schemes for the end points. 
+! References:  Disk notebook ctr 2007, pp. 9-14
+!     and maple \javi\wall\sergio\pade7.ms   
+!     and       \javi\wall\sergio\pade7end_sp.ms   
+!
+! Scheme is: sum_{j=-N}^N a_ij f'_{i+j} = 
+!            sum_{j=-N}^N b_ij f_{i+j}
+!
+! At the ends, the inner band-width is maintained,
+!    but outer limit is j=-i (for j=0:N-1)
+! 
+! Although this is a general routine, it is optimized for N=3
+!    It uses in general M spectral points to dispersion relation
+!       at khat = pi*kap(1:M).  Here M=3.
+!
+!*********************************************************************
+subroutine prederiv2
+  use yderiv
+  implicit none
+
+  integer N, M
+  integer,allocatable:: jj(:)
+  real*8, allocatable:: mat(:,:),vec(:),kap(:)
+
+  integer j,k,kk,kp
+  real*8  pi
+  complex*16 zrr,zii
+  ! ----------- define overall parameters ----
+  N=3    ! semi-band width
+  !M=2    ! number of spectral points, (8th order, probably) 
+  ! This should have been 3
+  M=3    ! (sixth order) 
+  allocate (kap(M))
+  kap(1) = 0.9d0
+  kap(2) = 0.5d0
+  kap(3) = 0.7d0
+  pi     = 4d0*datan(1d0)
+  kap    = kap*pi
+  !write(*,*) '  prederiv2, semi-band width: rhs 3, lhs 3 (spectral hepta-CFD)'
+  allocate ( pr2(-N:N), rh2(-N:N), rh2h(-N:N), lapmat(-N:N)  )
+  allocate ( a2(my),b2(my),c2(my),d2(my),d2m1(my) )
+  allocate ( e2(my),f2(my),g2(my),ce2(my),cf2(my),cg2(my) )
+  allocate ( ah(my),bh(my),ch(my),dh(my),dhm1(my) )
+  allocate ( eh(my),fh(my),gh(my),ceh(my),cfh(my),cgh(my) )
+  !write(*,*) '  prederiv2: allocated'
+  pr2 = 0d0; rh2 = 0d0;  rh2h = 0d0; lapmat = 0d0;
+
+  a2  = 0d0; b2  = 0d0; c2 = 0d0; d2 = 0d0; d2m1 = 0d0; 
+  e2  = dcmplx(0d0); f2  = dcmplx(0d0); g2  = dcmplx(0d0)
+  ce2 = dcmplx(0d0); cf2 = dcmplx(0d0); cg2 = dcmplx(0d0)
+
+  ah  = 0d0; bh  = 0d0; ch = 0d0; dh = 0d0; dhm1 = 0d0; 
+  eh  = dcmplx(0d0); fh  = dcmplx(0d0); gh = dcmplx(0d0)
+  ceh = dcmplx(0d0); cfh = dcmplx(0d0); cgh = dcmplx(0d0)
+
+  N2  = N
+  !-----------------------------------------------------------------------
+  !     central part
+  ! ----------------------------------------------------------------------
+  allocate (mat(2*N+1, 2*N+1), vec(2*N+1), jj(N))
+  vec = 0d0
+  mat = 0d0
+  do j=1,N
+     jj(j) = j
+  enddo
+
+  mat(1,N+2:2*N+1)      = 1d0   ! order 0
+  mat(1,N+1)          = 5d-1
+  do k=2,2*N+1-M              ! order 2*k-2 
+     kk = 2*k-2
+     mat(k,1:N)       =  dfloat(kk*(kk-1)*jj**(kk-2))    
+     mat(k,N+2:2*N+1) = -dfloat(jj**kk)      
+  enddo
+  vec(2)            = -1d0 ! the second-order derivative of y^2 at j=0
+  
+  do k=1,M                       ! the spectral points
+     mat(2*N+1-M+k,1:N)       =  kap(k)**2*dcos(kap(k)*dfloat(jj))    
+     mat(2*N+1-M+k,N+2:2*N+1) =  dcos(kap(k)*dfloat(jj))
+  enddo
+  mat(2*N+2-M:2*N+1,N+1)  = 5d-1             ! the cos(0) on the rhs      
+  vec(2*N+2-M:2*N+1)      = -0.5d0*kap**2    ! the derivative at 0 on the lhs  
+
+  call gaussj(mat,2*N+1,2*N+1,vec,1,1)
+
+  do j=1,N
+     rh2h( j) =  vec(N+1+j) ! a
+     rh2h(-j) =  vec(N+1+j) ! a
+     pr2( j) =  vec(j) ! b
+     pr2(-j) =  vec(j) ! b
+  enddo
+  rh2h(0) = vec(N+1)
+  pr2(0) = 1.d0 
+
+  deallocate (kap,mat,vec,jj)
+
+  !write(*,*) '  check pr2=',pr2 !OK
+  !write(*,*) '  check rh2h=',rh2h !OK
+
+  !-----------------------------------------------------------------------
+  !       end points
+  !       mixed order and spectral, look in notebook
+  !       only here for M=3 spectral points
+  !!! 2011-Aug. removed for shear-periodic 
+  !-----------------------------------------------------------------------
+
+  !  ------ scale and prefactor 
+  rh2 = rh2h/h**2
+  zrr = dcmplx(1.0d0,0.d0)
+  call modChol7cyclic_cmplx(a2,b2,c2,d2,d2m1,e2,f2,g2,ce2,cf2,cg2,pr2,my,zrr)
+  !  shear will be included by calling modChol_addshear() in each time step.
+  !write(*,*) 'a2',a2 
+  !write(*,*) 'b2',b2 
+  !write(*,*) 'c2',c2 
+  !write(*,*) 'd2',d2,'d2m1',d2m1 
+  !write(*,*) 'diff2',d2 - 1.d0/d2m1 
+  !write(*,*) 'e2',e2 
+  !write(*,*) 'f2',f2 
+  !write(*,*) 'g2',g2 
+
+end subroutine prederiv2
+
+subroutine visc3d(u,visc,ddu,shp,shm,m,rk,scal,what,ias)
+  use yderiv
+  implicit none
+
+  integer m,ias
+  real(8),dimension(m,my) :: u, visc, ddu
+  real(8) rk,scal
+  complex(8) shp,shm
+  character*1 what
+
+! 2nd derivative in 'y':
+  call derivyc(u,ddu,shp,shm,2,m,ias) ! add_shear
+
+! 2nd derivative in 'x' and 'z': d^2(u)/dx^2 + d^2(u)/dz^2 -> visc 
+  if (what.eq.'n') then
+     visc = scal*(-rk*u + ddu)
+  else
+     visc = visc + scal*(-rk*u + ddu)
+  endif
+
+end subroutine visc3d
+
+!************************************************************************
+!                                                                       !
+!    subroutine derivyc                                                 !
+!                                                                       !
+!    computes first or second derivatives in y of u, with size(u)=(my)  !
+!                                                                       !
+!    Input:                                                             !
+!         u: Field to derivate. Assumed to be complex or real, size my  !
+!    Output:                                                            !
+!        du: First derivative of u  (may be the same as u)              !
+!                                                                       !
+!************************************************************************
+
+subroutine derivyc(u,du,shp,shm,iord,m,ias)
+  use yderiv
+  use eft
+  use eft_buff
+  implicit none
+  integer i,j,m,jm3,iord,ias
+  real(8),dimension(m,my) :: u, du
+  complex(8) shp, shm
+
+  !complex(8), allocatable :: xyc(:)
+  
+  if (m.eq.1) then
+
+     uc(:) = dcmplx(u(1,:),0.d0)
+
+     ur(1)=uc(my-2);
+     ur(2)=uc(my-1);
+     ur(3)=uc(my);
+     
+     !ur(4:my+3)=uc(:); ! memcopy
+     call dcopy(my*2,uc,1,ur(4),1)
+     
+     ur(my+4)=uc(1);
+     ur(my+5)=uc(2);
+     ur(my+6)=uc(3);    
+
+  else
+
+     uc(:) = dcmplx(u(1,:),u(2,:))
+
+     ur(1)=uc(my-2)*shm;
+     ur(2)=uc(my-1)*shm;
+     ur(3)=uc(my)*shm;
+     
+     !ur(4:my+3)=uc(:); ! memcopy
+     call dcopy(my*2,uc,1,ur(4),1)
+
+     ur(my+4)=uc(1)*shp;
+     ur(my+5)=uc(2)*shp;
+     ur(my+6)=uc(3)*shp;    
+
+  endif
+
+  !allocate(xyc(7))
+
+  if (iord.eq.1) then    !!!!!  first derivative
+
+     !write(*,*) 'wk1'
+     do j=4,my+3
+        !jm3=j-3
+        !wk1(jm3) = sum(dcmplx(rh1(:))*ur(j-3:j+3))
+
+        xyc(0)=rh1(-3)*ur(j-3)
+        xyc(1)=rh1(-2)*ur(j-2)
+        xyc(2)=rh1(-1)*ur(j-1)
+        xyc(3)=dcmplx(0d0,0d0)
+        xyc(4)=rh1(1)*ur(j+1)
+        xyc(5)=rh1(2)*ur(j+2)
+        xyc(6)=rh1(3)*ur(j+3) 
+        call Sum2cmplx(7,xyc,wk1(j-3))
+        !wk1(j-3) = rh1(-3)*ur(j-3) + rh1(-2)*ur(j-2) + rh1(-1)*ur(j-1) &
+        !     + rh1(1)*ur(j+1) + rh1(2)*ur(j+2) + rh1(3)*ur(j+3) ! rh1(0) = 0
+        !write(*,*) wk1(jm3)
+     enddo
+
+     if (m.eq.1) then
+        call solve7cyclic(a1,b1,c1,d1,d1m1,e1,f1,g1,ce1,cf1,cg1,wk1,duc,wk2,my)
+        du(1,:) = dreal(duc)
+     elseif (m.eq.2) then
+        if (ias.eq.1) then
+           !dh=d1;eh=e1;fh=f1;gh=g1; ! memcopy
+
+           call dcopy(my,d1,1,dh,1)
+           call dcopy(my,d1m1,1,dhm1,1)
+           !call dcopy(my*2,e1,1,eh,1)
+           !call dcopy(my*2,f1,1,fh,1)
+           !call dcopy(my*2,g1,1,gh,1)
+           
+           !dh=d1; 
+           ! multiply shp from right 
+           eh(1:(my-6))=dreal(e1(1:(my-6)))*shp; eh((my-5):my)=e1((my-5):my) 
+           fh(1:(my-5))=dreal(f1(1:(my-5)))*shp; fh((my-4):my)=f1((my-4):my) 
+           gh(1:(my-4))=dreal(g1(1:(my-4)))*shp; gh(my-3:my)=g1(my-3:my) 
+           ! pre-multi by shp ???
+
+           call modChol_addshear(a1,b1,c1,dh,dhm1,eh,fh,gh,ceh,cfh,cgh,pr1,my,shp)
+        end if
+!        write(*,*) 'c1',c1
+!        write(*,*) 'd1',dh
+!        write(*,*) 'e1',eh
+!        write(*,*) 'f1',fh
+!        write(*,*) 'g1',gh
+
+        call solve7cyclic(a1,b1,c1,dh,dhm1,eh,fh,gh,ceh,cfh,cgh,wk1,du,wk2,my)
+     endif
+  else                 !!!!!  second derivative 
+
+     !write(*,*) 'wk1' 
+    
+     do j=4,my+3
+        !jm3=j-3
+        !wk1(jm3) = sum(dcmplx(rh2(:))*ur(j-3:j+3))
+        xyc(0)=rh2(-3)*ur(j-3)
+        xyc(1)=rh2(-2)*ur(j-2)
+        xyc(2)=rh2(-1)*ur(j-1)
+        xyc(3)=rh2(0)*ur(j)
+        xyc(4)=rh2(1)*ur(j+1)
+        xyc(5)=rh2(2)*ur(j+2)
+        xyc(6)=rh2(3)*ur(j+3) 
+        call Sum2cmplx(7,xyc,wk1(j-3))
+        !wk1(j-3) = rh2(-3)*ur(j-3) + rh2(-2)*ur(j-2) + rh2(-1)*ur(j-1) &
+        !     + rh2(0)*ur(j) + rh2(1)*ur(j+1) + rh2(2)*ur(j+2) + rh2(3)*ur(j+3) 
+        !write(*,*) wk1(jm3)
+     enddo
+
+     if (m.eq.1) then
+        call solve7cyclic(a2,b2,c2,d2,d2m1,e2,f2,g2,ce2,cf2,cg2,wk1,duc,wk2,my)
+        du(1,:) = dreal(duc)
+     elseif (m.eq.2) then
+        if (ias.eq.1) then
+           !dh=d2;eh=e2;fh=f2;gh=g2; ! memcopy
+
+           call dcopy(my,d2,1,dh,1)
+           call dcopy(my,d2m1,1,dhm1,1)
+           !call dcopy(my*2,e2,1,eh,1)
+           !call dcopy(my*2,f2,1,fh,1)
+           !call dcopy(my*2,g2,1,gh,1)
+           
+           eh(1:(my-6))=dreal(e2(1:(my-6)))*shp; eh(my-5:my)=e2(my-5:my) 
+           fh(1:(my-5))=dreal(f2(1:(my-5)))*shp; fh(my-4:my)=f2(my-4:my) 
+           gh(1:my-4)=dreal(g2(1:my-4))*shp; gh(my-3:my)=g2(my-3:my) 
+           ! pre-multi by shp ???
+
+           call modChol_addshear(a2,b2,c2,dh,dhm1,eh,fh,gh,ceh,cfh,cgh,pr2,my,shp)
+        end if
+        call solve7cyclic(a2,b2,c2,dh,dhm1,eh,fh,gh,ceh,cfh,cgh,wk1,du,wk2,my)
+     endif
+  endif
+
+  !deallocate(xyc)
+
+end subroutine derivyc
+
+
+!************************************************************************
+!                                                                       !
+!    subroutine lapcdy                                                  !
+!                                                                       !
+!    solves laplace's equation (d_yy-k2)p = u (helmholtz equation)      !
+!                    shear-periodic  b.c.                               !
+!    Input:                                                             !
+!         u: rhs. Assumed to be complex(m=2) or real(m=1) of size my    !
+!    Output:                                                            !
+!         p: solution  (can be same as u)                               !
+!                                                                       !
+!************************************************************************
+
+subroutine lapcdy(u,k2,p,shp,shm,m)
+  use yderiv
+  use eft
+  use eft_buff
+
+  implicit none
+  integer i,j,jm3,m
+  real(8),dimension(m,my) :: u, p
+  real(8) k2
+  complex(8) shp,shm
+
+  lapmat=rh2-k2*pr2
+  call modChol7cyclic_cmplx(ah,bh,ch,dh,dhm1,eh,fh,gh,ceh,cfh,cgh,lapmat,my,shp)
+  ! shifting by shear is included
+
+  !-------PREPARO EL TERMINO INDEPENDIENTE [pr2]*{u} 
+  if (m.eq.1) then
+     uc(:) = dcmplx(u(1,:),0.d0)
+
+     ur(1)=uc(my-2);
+     ur(2)=uc(my-1);
+     ur(3)=uc(my);
+     
+     !ur(4:my+3)=uc(:); ! memcopy
+     call dcopy(my*2,uc,1,ur(4),1)
+
+     ur(my+4)=uc(1);
+     ur(my+5)=uc(2);
+     ur(my+6)=uc(3);    
+
+  else
+     uc(:) = dcmplx(u(1,:),u(2,:))
+
+     ur(1)=uc(my-2)*shm;
+     ur(2)=uc(my-1)*shm;
+     ur(3)=uc(my)*shm;
+     
+     !ur(4:my+3)=uc(:); ! memcopy
+     call dcopy(my*2,uc,1,ur(4),1)
+     ur(my+4)=uc(1)*shp;
+     ur(my+5)=uc(2)*shp;
+     ur(my+6)=uc(3)*shp;    
+
+  endif
+  
+  do j=4,my+3
+     !jm3=j-3
+     !wk1(jm3) = sum(dcmplx(pr2(:))*ur(j-3:j+3))
+     
+     xyc(0)=pr2(-3)*ur(j-3)
+     xyc(1)=pr2(-2)*ur(j-2)
+     xyc(2)=pr2(-1)*ur(j-1)
+     xyc(3)=pr2(0)*ur(j)
+     xyc(4)=pr2(1)*ur(j+1)
+     xyc(5)=pr2(2)*ur(j+2)
+     xyc(6)=pr2(3)*ur(j+3) 
+     call Sum2cmplx(7,xyc,wk1(j-3))
+     !wk1(j-3) = pr2(-3)*ur(j-3) + pr2(-2)*ur(j-2) + pr2(-1)*ur(j-1) &
+     !     + pr2(0)*ur(j) + pr2(1)*ur(j+1) + pr2(2)*ur(j+2) + pr2(3)*ur(j+3) 
+  enddo
+ 
+  if (m.eq.1) then
+     ! no need to modify Cholesky elements  
+     call solve7cyclic(ah,bh,ch,dh,dhm1,eh,fh,gh,ceh,cfh,cgh,wk1,pc,wk2,my)
+     p(1,:) = dreal(pc)
+  else
+     ! no need to modify Cholesky elements  
+     call solve7cyclic(ah,bh,ch,dh,dhm1,eh,fh,gh,ceh,cfh,cgh,wk1,p,wk2,my)
+  end if  
+
+end subroutine lapcdy
+
+
+!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+!
+!    prepares commons and things for using cfdiff and laps later
+!                             jj/may/05
+!
+!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+subroutine derivadas(n,dy)  
+  use yderiv
+  use eft_buff
+  implicit none
+  integer n,my6
+  real*8  dy
+
+  my = n
+  h  = dy
+!     ---  start doing something -------------
+  my6 = my+3+3
+  allocate (wk1(my), wk2(my), ur(my6)) 
+  allocate (uc(my),duc(my),pc(my))
+  wk1 = 0.d0; wk2 = 0.d0; ur = 0.d0
+  uc = 0.d0; duc = 0.d0; pc = 0.d0
+  ! ur is a working vector for matvec  
+  !
+  ! eft_buffer
+  allocate(xy(0:n))
+  allocate(xyc(0:n),xx(0:6),yy(0:6))
+  xy=0d0
+  xyc=0d0
+  xx=0d0
+  yy=0d0
+  !write(*,*) '  in derivadas: allocated'
+  call prederiv1
+  !write(*,*) '  prederiv1 in derivadas: OK'
+  call prederiv2
+  !write(*,*) '  prederiv2 in derivadas: OK'
+
+end subroutine derivadas
+
+subroutine update_dy(dy)
+  ! implemented to update grid spacing in y-dir
+  use yderiv
+  implicit none
+  integer n,my6
+  real*8  dy
+
+  h  = dy
+  rh1 = rh1h/h
+  rh2 = rh2h/h**2
+
+end subroutine update_dy
+
+!***********************************************************************
+!    subroutine for modified Cholesky decomposition
+!***********************************************************************
+subroutine modChol7cyclic_cmplx(La,Lb,Lc,Dd,Ddm1,Le,Lf,Lg,cLe,cLf,cLg,a,N,shp)
+  use eft
+  use eft_buff
+  implicit none
+  integer N
+  real(8),dimension(N) :: La,Lb,Lc,Dd,Ddm1
+  complex(8),dimension(N) :: Le,Lf,Lg,cLe,cLf,cLg
+  real(8),dimension(-3:3) :: a
+  complex(8) shp,tmp,zero
+  real(8) det, tmpr, cond
+  integer i,j,k
+  !real*8, allocatable :: xy(:)
+  !complex*16, allocatable :: xyc(:)
+
+  zero=dcmplx(0.d0,0.d0)
+
+  !allocate(xy(0:N))
+  !allocate(xyc(0:N))
+
+  j=1;
+  Dd(j)=a(0); Ddm1(j)=1.d0/a(0);
+  La(j+1)= Ddm1(j)*a(1);
+  !%i=j+2
+  Lb(j+2)= Ddm1(j)*a(2);
+  !%i=j+3
+  Lc(j+3)= Ddm1(j)*a(3);
+  !%i=N-2
+  !% for i=N-2:N
+  !%   L(i,j)= 1/Dd(j)*A(i,j); %^\ast
+  !% end
+  !%
+  j=2;
+  xy(0)=a(0)
+  xy(1)=0.d0
+  xy(2)=0.d0
+  xy(3)=-La(j)*Dd(j-1)*La(j)
+  call Sum2(4,xy,Dd(j))
+  !!Dd(j)=a(0) - (La(j)*Dd(j-1)*La(j));
+  Ddm1(j)=1.d0/Dd(j)
+
+  xy(0)=a(1)
+  xy(1)=0.d0
+  xy(2)=-Lb(j+1)*Dd(j-1)*La(j)
+  xy(3)=0.d0
+  call Sum2(3,xy,La(j+1))
+  La(j+1)= Ddm1(j)*La(j+1)
+  !!La(j+1)=  Ddm1(j)*(a(1) - Lb(j+1)*Dd(j-1)*La(j));
+  !%i=j+2
+  xy(0)=a(2)
+  xy(1)=-Lc(j+2)*Dd(j-1)*La(j)
+  call Sum2(2,xy,Lb(j+2))
+  Lb(j+2)= Ddm1(j)*Lb(j+2)
+  !!Lb(j+2)=  Ddm1(j)*(a(2) - Lc(j+2)*Dd(j-1)*La(j));
+  !%i=j+3
+  Lc(j+3)=  Ddm1(j)*a(3);
+  !%i=N-2
+  !% for i=N-2:N
+  !%   L(i,j)= 1/D(j,j)*(A(i,j) - ( ...
+  !%     L(i,j-1)*D(j-1,j-1)*L(j,j-1)) ); %^\ast
+  !% end
+  !%
+  j=3;
+  xy(0)=a(0)
+  xy(1)=0.d0
+  xy(2)=-Lb(j)*Dd(j-2)*Lb(j)
+  xy(3)=-La(j)*Dd(j-1)*La(j)
+  call Sum2(4,xy,Dd(j))
+  !!Dd(j)=a(0) - (Lb(j)*Dd(j-2)*Lb(j)+La(j)*Dd(j-1)*La(j));
+  Ddm1(j)= 1.d0/Dd(j)
+
+  xy(0)=a(1)
+  xy(1)=-Lc(j+1)*Dd(j-2)*Lb(j)
+  xy(2)=-Lb(j+1)*Dd(j-1)*La(j)
+  xy(3)=0.d0
+  call Sum2(3,xy,La(j+1))
+  La(j+1)= Ddm1(j)*La(j+1)
+  !!La(j+1)= Ddm1(j)*( a(1) - (Lc(j+1)*Dd(j-2)*Lb(j) + Lb(j+1)*Dd(j-1)*La(j)));
+  !%i=j+2
+  xy(0)=a(2)
+  xy(1)=-Lc(j+2)*Dd(j-1)*La(j)
+  xy(2)=0d0; 
+  xy(3)=0d0;
+  call Sum2(2,xy,Lb(j+2))
+  Lb(j+2)= Ddm1(j)*Lb(j+2)
+  !!Lb(j+2)= Ddm1(j)*( a(2) - Lc(j+2)*Dd(j-1)*La(j) );
+  !%i=j+3
+  Lc(j+3)= Ddm1(j)*a(3);
+  !%i=N-2
+  !% for i=N-2:N
+  !%   L(i,j)= 1/D(j,j)*(A(i,j) - ( ...
+  !%     L(i,j-2)*D(j-2,j-2)*L(j,j-2)+L(i,j-1)*D(j-1,j-1)*L(j,j-1)) ); %^\ast
+  !% end
+  !%
+  do j=4,N-6
+     xy(0)=a(0)
+     xy(1)=-Lc(j)*Dd(j-3)*Lc(j)
+     xy(2)=-Lb(j)*Dd(j-2)*Lb(j)
+     xy(3)=-La(j)*Dd(j-1)*La(j)
+     call Sum2(4,xy,Dd(j))
+     !Dd(j) = a(0) - (Lc(j)*Dd(j-3)*Lc(j)+ &
+     !                Lb(j)*Dd(j-2)*Lb(j)+La(j)*Dd(j-1)*La(j));
+     Ddm1(j)= 1.d0/Dd(j)
+
+     xy(0)=a(1)
+     xy(1)=-Lc(j+1)*Dd(j-2)*Lb(j)
+     xy(2)=-Lb(j+1)*Dd(j-1)*La(j)
+     xy(3)=0.d0
+     call Sum2(3,xy,La(j+1))
+     La(j+1)= Ddm1(j)*La(j+1)
+     !La(j+1)= Ddm1(j)*(a(1) - &
+     !               (Lc(j+1)*Dd(j-2)*Lb(j) + Lb(j+1)*Dd(j-1)*La(j)));
+     !%i=j+2
+     xy(0)=a(2)
+     xy(1)=-Lc(j+2)*Dd(j-1)*La(j)
+     xy(2)=0d0; xy(3)=0d0
+     call Sum2(2,xy,Lb(j+2))
+     Lb(j+2)= Ddm1(j)*Lb(j+2)
+     !Lb(j+2)= Ddm1(j)*(a(2) - Lc(j+2)*Dd(j-1)*La(j) );
+     !%i=j+3
+     Lc(j+3)= Ddm1(j)*a(3);
+     !%i=N-2
+     !%   for i=N-2:N 
+     !%     L(i,j)= 1/D(j,j)*(A(i,j) - (L(i,j-3)*D(j-3,j-3)*L(j,j-3)+ ... 
+     !%             L(i,j-2)*D(j-2,j-2)*L(j,j-2)+L(i,j-1)*D(j-1,j-1)*L(j,j-1)) ); %^\ast
+     !%   end
+  end do
+  j=N-5;
+  xy(0)=a(0)
+  xy(1)=-Lc(j)*Dd(j-3)*Lc(j)
+  xy(2)=-Lb(j)*Dd(j-2)*Lb(j)
+  xy(3)=-La(j)*Dd(j-1)*La(j)
+  call Sum2(4,xy,Dd(j))
+  !Dd(j) = a(0) - (Lc(j)*Dd(j-3)*Lc(j)+ &
+  !     &          Lb(j)*Dd(j-2)*Lb(j)+La(j)*Dd(j-1)*La(j));
+  Ddm1(j)= 1.d0/Dd(j)
+  xy(0)=a(1)
+  xy(1)=-Lc(j+1)*Dd(j-2)*Lb(j)
+  xy(2)=-Lb(j+1)*Dd(j-1)*La(j)
+  xy(3)=0.d0
+  call Sum2(3,xy,La(j+1))
+  La(j+1)=Ddm1(j)*La(j+1)
+  !La(j+1)= Ddm1(j)*(a(1) - &
+  !                  (Lc(j+1)*Dd(j-2)*Lb(j) + Lb(j+1)*Dd(j-1)*La(j)));
+  !%i=j+2
+  xy(0)=a(2)
+  xy(1)=-Lc(j+2)*Dd(j-1)*La(j)
+  xy(2)=0d0; xy(3)=0d0
+  call Sum2(2,xy,Lb(j+2))
+  Lb(j+2)=Ddm1(j)*Lb(j+2)
+  !Lb(j+2)= Ddm1(j)*(a(2) - Lc(j+2)*Dd(j-1)*La(j) );
+
+  j=N-4;
+  xy(0)=a(0)
+  xy(1)=-Lc(j)*Dd(j-3)*Lc(j)
+  xy(2)=-Lb(j)*Dd(j-2)*Lb(j)
+  xy(3)=-La(j)*Dd(j-1)*La(j)
+  call Sum2(4,xy,Dd(j))
+  !Dd(j) = a(0) - (Lc(j)*Dd(j-3)*Lc(j)+ &
+  !                Lb(j)*Dd(j-2)*Lb(j)+La(j)*Dd(j-1)*La(j));
+  Ddm1(j)= 1.d0/Dd(j)
+
+  xy(0)=a(1)
+  xy(1)=-Lc(j+1)*Dd(j-2)*Lb(j)
+  xy(2)=-Lb(j+1)*Dd(j-1)*La(j)
+  xy(3)=0.d0
+  call Sum2(3,xy,La(j+1))
+  La(j+1)=Ddm1(j)*La(j+1)
+  !La(j+1)= Ddm1(j)*(a(1) - &
+  !               (Lc(j+1)*Dd(j-2)*Lb(j) + Lb(j+1)*Dd(j-1)*La(j)));
+
+  j=N-3;
+  xy(0)=a(0)
+  xy(1)=-Lc(j)*Dd(j-3)*Lc(j)
+  xy(2)=-Lb(j)*Dd(j-2)*Lb(j)
+  xy(3)=-La(j)*Dd(j-1)*La(j)
+  call Sum2(4,xy,Dd(j))
+  !Dd(j) = a(0) - (Lc(j)*Dd(j-3)*Lc(j)+ &
+  !                Lb(j)*Dd(j-2)*Lb(j)+La(j)*Dd(j-1)*La(j));
+  Ddm1(j)= 1.d0/Dd(j)
+  !
+  Le(1)=Ddm1(1)*a(3)*shp; !%^\ast
+  i=2;
+  Le(2)=Ddm1(i)*(-Le(i-1)*Dd(i-1)*La(i));
+  i=3;
+  xyc(0)=dcmplx(0d0); xyc(1)=dcmplx(0d0);
+  xyc(2)=-Le(i-2)*Dd(i-2)*Lb(i)
+  xyc(3)=-Le(i-1)*Dd(i-1)*La(i)
+  call Sum2cmplx(4,xyc,Le(i))
+  Le(i)=Ddm1(i)*Le(i)
+  !!Le(3)=Ddm1(i)*(-Le(i-2)*Dd(i-2)*Lb(i)-Le(i-1)*Dd(i-1)*La(i));
+  do i=4,N-6
+     xyc(0)=dcmplx(0d0,0d0)
+     xyc(1)=-Le(i-3)*Dd(i-3)*Lc(i)
+     xyc(2)=-Le(i-2)*Dd(i-2)*Lb(i)
+     xyc(3)=-Le(i-1)*Dd(i-1)*La(i)
+     call Sum2cmplx(4,xyc,Le(i))
+     Le(i)=Ddm1(i)*Le(i)
+     !!Le(i)=Ddm1(i)*(-Le(i-3)*Dd(i-3)*Lc(i)-Le(i-2)*Dd(i-2)*Lb(i)-Le(i-1)*Dd(i-1)*La(i));
+  end do
+
+  i=N-5;
+  xyc(0)=dcmplx(a(3),0d0)
+  xyc(1)=-Le(i-3)*Dd(i-3)*Lc(i)
+  xyc(2)=-Le(i-2)*Dd(i-2)*Lb(i)
+  xyc(3)=-Le(i-1)*Dd(i-1)*La(i)
+  call Sum2cmplx(4,xyc,Le(i))
+  Le(i)=Ddm1(i)*Le(i)
+  !!Le(i)=Ddm1(i)*(a(3)-Le(i-3)*Dd(i-3)*Lc(i)-Le(i-2)*Dd(i-2)*Lb(i)-Le(i-1)*Dd(i-1)*La(i));
+
+  i=N-4;
+  xyc(0)=dcmplx(a(2),0d0)
+  xyc(1)=-Le(i-3)*Dd(i-3)*Lc(i)
+  xyc(2)=-Le(i-2)*Dd(i-2)*Lb(i)
+  xyc(3)=-Le(i-1)*Dd(i-1)*La(i)
+  call Sum2cmplx(4,xyc,Le(i))
+  Le(i)=Ddm1(i)*Le(i)
+  !!Le(i)=Ddm1(i)*(a(2)-Le(i-3)*Dd(i-3)*Lc(i)-Le(i-2)*Dd(i-2)*Lb(i)-Le(i-1)*Dd(i-1)*La(i));
+
+  i=N-3;
+  xyc(0)=dcmplx(a(1),0d0)
+  xyc(1)=-Le(i-3)*Dd(i-3)*Lc(i)
+  xyc(2)=-Le(i-2)*Dd(i-2)*Lb(i)
+  xyc(3)=-Le(i-1)*Dd(i-1)*La(i)
+  call Sum2cmplx(4,xyc,Le(i))
+  Le(i)=Ddm1(i)*Le(i)
+  !!Le(i)=Ddm1(i)*(a(1)-Le(i-3)*Dd(i-3)*Lc(i)-Le(i-2)*Dd(i-2)*Lb(i)-Le(i-1)*Dd(i-1)*La(i));
+  !%%%
+  j=N-2;
+  xy(0)=a(0)
+  do k=1,(N-3)
+     xy(k) = - dreal(Le(k)*dconjg(Le(k)))*Dd(k);
+  end do
+  call Sum2(j,xy,Dd(j))
+  !tmpr=0.d0;
+  !do k=1,(N-3)
+  !   tmpr=tmpr + dreal(Le(k)*dconjg(Le(k)))*Dd(k);
+  !end do
+  !Dd(j)=a(0) - tmpr;
+  Ddm1(j)=1.d0/Dd(j)
+  !%%%
+  Lf(1)=Ddm1(1)*a(2)*shp;
+  i=2;
+  xyc(0)=a(3)*shp
+  xyc(1)=-Lf(i-1)*Dd(i-1)*La(i)
+  call Sum2cmplx(2,xyc,Lf(i))
+  Lf(i)=Ddm1(i)*Lf(i)
+  !!Lf(i)=Ddm1(i)*(a(3)*shp-Lf(i-1)*Dd(i-1)*La(i));
+  i=3;
+  xyc(0)=0d0
+  xyc(1)=-Lf(i-2)*Dd(i-2)*Lb(i)
+  xyc(2)=-Lf(i-1)*Dd(i-1)*La(i)
+  call Sum2cmplx(3,xyc,Lf(i))
+  Lf(i)=Ddm1(i)*Lf(i)
+  !!Lf(i)=Ddm1(i)*(-Lf(i-2)*Dd(i-2)*Lb(i)-Lf(i-1)*Dd(i-1)*La(i));
+  do i=4,N-5
+     xyc(0)=0d0
+     xyc(1)=-Lf(i-3)*Dd(i-3)*Lc(i)
+     xyc(2)=-Lf(i-2)*Dd(i-2)*Lb(i)
+     xyc(3)=-Lf(i-1)*Dd(i-1)*La(i)
+     call Sum2cmplx(4,xyc,Lf(i))
+     Lf(i)=Ddm1(i)*Lf(i)
+     !!Lf(i)=Ddm1(i)*(-Lf(i-3)*Dd(i-3)*Lc(i)-Lf(i-2)*Dd(i-2)*Lb(i)-Lf(i-1)*Dd(i-1)*La(i));
+  end do
+
+  i=N-4;
+  xyc(0)=dcmplx(a(3),0d0)
+  xyc(1)=-Lf(i-3)*Dd(i-3)*Lc(i)
+  xyc(2)=-Lf(i-2)*Dd(i-2)*Lb(i)
+  xyc(3)=-Lf(i-1)*Dd(i-1)*La(i)
+  call Sum2cmplx(4,xyc,Lf(i))
+  Lf(i)=Ddm1(i)*Lf(i)
+  !!Lf(i)=Ddm1(i)*(a(3)-Lf(i-3)*Dd(i-3)*Lc(i)-Lf(i-2)*Dd(i-2)*Lb(i)-Lf(i-1)*Dd(i-1)*La(i));
+
+  i=N-3;
+  xyc(0)=dcmplx(a(2),0d0)
+  xyc(1)=-Lf(i-3)*Dd(i-3)*Lc(i)
+  xyc(2)=-Lf(i-2)*Dd(i-2)*Lb(i)
+  xyc(3)=-Lf(i-1)*Dd(i-1)*La(i)
+  call Sum2cmplx(4,xyc,Lf(i))
+  Lf(i)=Ddm1(i)*Lf(i)
+  !!Lf(i)=Ddm1(i)*(a(2)-Lf(i-3)*Dd(i-3)*Lc(i)-Lf(i-2)*Dd(i-2)*Lb(i)-Lf(i-1)*Dd(i-1)*La(i));
+
+  i=N-2;
+  xyc(0) = dcmplx(a(1),0d0)
+  do k=1,(N-3)
+     xyc(k)= - Lf(k)*dconjg(Le(k))*Dd(k);
+  end do
+  call Sum2cmplx(i,xyc,Lf(i))
+  Lf(i)=Ddm1(j)*Lf(i)
+  !tmp=zero;
+  !do k=1,(N-3)
+  !   tmp=tmp+Lf(k)*dconjg(Le(k))*Dd(k);
+  !end do
+  !Lf(i)= Ddm1(j)*(a(1) - tmp);
+  !%%%
+  j=N-1;
+  xy(0)= dcmplx(a(0),0d0)
+  do k=1,(N-2)
+     xy(k)= - dreal(Lf(k)*dconjg(Lf(k)))*Dd(k);
+  end do
+  call Sum2(j,xy,Dd(j))
+  !tmpr=0.d0;
+  !do k=1,(N-2)
+  !   tmpr=tmpr+dreal(Lf(k)*dconjg(Lf(k)))*Dd(k);
+  !end do
+  !Dd(j)=a(0) - tmpr;
+  Ddm1(j) = 1.d0/Dd(j)
+  !
+  Lg(1)=Ddm1(1)*a(1)*shp;
+  i=2;
+  xyc(0)= a(2)*shp
+  xyc(1)=-Lg(i-1)*Dd(i-1)*La(i)
+  call Sum2cmplx(2,xyc,Lg(i))
+  Lg(i)=Ddm1(i)*Lg(i)
+  !!Lg(i)=Ddm1(i)*(a(2)*shp-Lg(i-1)*Dd(i-1)*La(i));
+  i=3;
+  xyc(0)= a(3)*shp
+  xyc(1)=-Lg(i-2)*Dd(i-2)*Lb(i)
+  xyc(2)=-Lg(i-1)*Dd(i-1)*La(i)
+  call Sum2cmplx(3,xyc,Lg(i))
+  Lg(i)=Ddm1(i)*Lg(i)
+  !!Lg(i)=Ddm1(i)*(a(3)*shp-Lg(i-2)*Dd(i-2)*Lb(i)-Lg(i-1)*Dd(i-1)*La(i));
+  do i=4,(N-4)
+     xyc(0)=dcmplx(0d0,0d0)
+     xyc(1)=-Lg(i-3)*Dd(i-3)*Lc(i)
+     xyc(2)=-Lg(i-2)*Dd(i-2)*Lb(i)
+     xyc(3)=-Lg(i-1)*Dd(i-1)*La(i)
+     call Sum2cmplx(4,xyc,Lg(i))
+     Lg(i)=Ddm1(i)*Lg(i);
+     !!Lg(i)=Ddm1(i)*(-Lg(i-3)*Dd(i-3)*Lc(i)-Lg(i-2)*Dd(i-2)*Lb(i)-Lg(i-1)*Dd(i-1)*La(i));
+  end do
+  i=N-3;
+  xyc(0)=dcmplx(a(3),0d0);
+  xyc(1)=-Lg(i-3)*Dd(i-3)*Lc(i);
+  xyc(2)=-Lg(i-2)*Dd(i-2)*Lb(i);
+  xyc(3)=-Lg(i-1)*Dd(i-1)*La(i);
+  call Sum2cmplx(4,xyc,Lg(i))
+  Lg(i)=Ddm1(i)*Lg(i);
+  !!Lg(i)=Ddm1(i)*(a(3)-Lg(i-3)*Dd(i-3)*Lc(i)-Lg(i-2)*Dd(i-2)*Lb(i)-Lg(i-1)*Dd(i-1)*La(i));
+  !%
+  i=N-2;
+  xyc(0)=dcmplx(a(2),0d0)
+  do k=1,(i-1)
+     xyc(k)= - Lg(k)*Dd(k)*dconjg(Le(k));
+  end do  
+  call Sum2cmplx(i,xyc,Lg(i))
+  Lg(i)= Ddm1(i)*Lg(i)
+  !tmp=zero;
+  !do k=1,(i-1)
+  !   tmp=tmp+Lg(k)*Dd(k)*dconjg(Le(k));
+  !end do
+  !Lg(i)= Ddm1(i)*(a(2) - tmp); 
+  !%
+  i=N-1;
+  xyc(0)=dcmplx(a(1),0d0)
+  do k=1,(i-1)
+     xyc(k)= - Lg(k)*Dd(k)*dconjg(Lf(k));
+  end do
+  call Sum2cmplx(i,xyc,Lg(i))
+  Lg(i)= Ddm1(i)*Lg(i); 
+  !tmp=0.d0;
+  !do k=1,(i-1)
+  !   tmp=tmp+Lg(k)*Dd(k)*dconjg(Lf(k));
+  !end do
+  !Lg(i)= Ddm1(i)*(a(1) - tmp); 
+  !%%%
+  j=N;
+  xy(0)=a(0)
+  do k=1,N-1
+     xy(k)= - dreal(Lg(k)*dconjg(Lg(k)))*Dd(k);
+  end do
+  call Sum2(j,xy,Dd(j)) ! the index of xy starts from 0
+  !!tmpr=0.d0;
+  !!do k=1,N-1
+  !!   tmpr=tmpr+dreal(Lg(k)*dconjg(Lg(k)))*Dd(k);
+  !!end do
+  !!Dd(j)=a(0) - tmpr;
+  Ddm1(j) = 1.d0/Dd(j)
+  
+  cLe=dconjg(Le);
+  cLf=dconjg(Lf);
+  cLg=dconjg(Lg);
+  ! check 
+  !det = sum(Dd)
+  !write(*,*) 'modChol7cyclic_cmplx: det = ', det 
+  !cond = Dd(1)/Dd(N)
+  !write(*,*) 'modChol7cyclic_cmplx:cond = ', cond
+
+  !deallocate(xy)
+  !deallocate(xyc)
+
+end subroutine modChol7cyclic_cmplx
+
+!***********************************************************************
+!    subroutine for addshear to modChol decomposition
+!***********************************************************************
+subroutine modChol_addshear(La,Lb,Lc,Dd,Ddm1,Le,Lf,Lg,cLe,cLf,cLg,a,N,shp)
+  use eft
+  use eft_buff
+  implicit none
+  integer N
+  real*8  La(N),Lb(N),Lc(N),Dd(N),Ddm1(N)
+  ! assuming the complex part of these input (Le, Lf, Lg) are zero 
+  complex*16 Le(N),Lf(N),Lg(N),cLe(N),cLf(N),cLg(N)
+  real*8 a(-3:3)
+  complex*16 shp,tmp,zrr
+  integer i,j,k
+  real*8 det,tmpr
+  !real*8, allocatable :: xy(:)
+  !complex*16, allocatable :: xyc(:)
+
+  !allocate(xy(0:N))
+  !allocate(xyc(0:N))
+
+  zrr=dcmplx(0.d0,0.d0)
+  !%%%
+  !%
+  !%  Le(1)=1/Dd(1)*a(3)*shp; %^\ast
+  !%  i=2;
+  !%  Le(2)=1/Dd(i)*(-Le(i-1)*Dd(i-1)*La(i));
+  !%  i=3;
+  !%  Le(3)=1/Dd(i)*(-Le(i-2)*Dd(i-2)*Lb(i)-Le(i-1)*Dd(i-1)*La(i));
+  !%  for i=4:N-6
+  !%    Le(i)=1/Dd(i)*(-Le(i-3)*Dd(i-3)*Lc(i)-Le(i-2)*Dd(i-2)*Lb(i)-Le(i-1)*Dd(i-1)*La(i));
+  !%  end
+  !$$$Le(1:N-6)=dreal(Le(1:N-6))*shp; ! premulti (rev390)
+  i=N-5;
+  xyc(0)=dcmplx(a(3),0d0)
+  xyc(1)=-Le(i-3)*Dd(i-3)*Lc(i)
+  xyc(2)=-Le(i-2)*Dd(i-2)*Lb(i)
+  xyc(3)=-Le(i-1)*Dd(i-1)*La(i)
+  call Sum2cmplx(4,xyc,Le(i))
+  Le(i)=Ddm1(i)*Le(i)
+  !Le(i)=Ddm1(i)*(a(3)-Le(i-3)*Dd(i-3)*Lc(i)-Le(i-2)*Dd(i-2)*Lb(i)-Le(i-1)*Dd(i-1)*La(i));
+
+  i=N-4;
+  xyc(0)=dcmplx(a(2),0d0)
+  xyc(1)=-Le(i-3)*Dd(i-3)*Lc(i)
+  xyc(2)=-Le(i-2)*Dd(i-2)*Lb(i)
+  xyc(3)=-Le(i-1)*Dd(i-1)*La(i)
+  call Sum2cmplx(4,xyc,Le(i))
+  Le(i)=Ddm1(i)*Le(i)
+  !Le(i)=Ddm1(i)*(a(2)-Le(i-3)*Dd(i-3)*Lc(i)-Le(i-2)*Dd(i-2)*Lb(i)-Le(i-1)*Dd(i-1)*La(i));
+
+  i=N-3;
+  xyc(0)=dcmplx(a(1),0d0)
+  xyc(1)=-Le(i-3)*Dd(i-3)*Lc(i)
+  xyc(2)=-Le(i-2)*Dd(i-2)*Lb(i)
+  xyc(3)=-Le(i-1)*Dd(i-1)*La(i)
+  call Sum2cmplx(4,xyc,Le(i))
+  Le(i)=Ddm1(i)*Le(i)
+  !Le(i)=Ddm1(i)*(a(1)-Le(i-3)*Dd(i-3)*Lc(i)-Le(i-2)*Dd(i-2)*Lb(i)-Le(i-1)*Dd(i-1)*La(i));
+  !%%%
+  j=N-2;
+  xy(0)=a(0)
+  do k=1,(N-3)
+     xy(k)=-dreal(Le(k)*dconjg(Le(k)))*Dd(k);
+  end do
+  call Sum2(j,xy,Dd(j)) 
+  !tmpr=0.d0;
+  !do k=1,(N-3)
+  !   tmpr=tmpr + dreal(Le(k)*dconjg(Le(k)))*Dd(k);
+  !end do
+  !Dd(j)=a(0) - tmpr;
+  Ddm1(j)=1.d0/Dd(j)
+
+  !%%%
+  !%Lf(1)=1/Dd(1)*a(2)*shp;
+  !%i=2;
+  !%Lf(i)=1/Dd(i)*(a(3)*shp-Lf(i-1)*Dd(i-1)*La(i));
+  !%i=3;
+  !%Lf(i)=1/Dd(i)*(-Lf(i-2)*Dd(i-2)*Lb(i)-Lf(i-1)*Dd(i-1)*La(i));
+  !%for i=4:N-5
+  !%  Lf(i)=1/Dd(i)*(-Lf(i-3)*Dd(i-3)*Lc(i)-Lf(i-2)*Dd(i-2)*Lb(i)-Lf(i-1)*Dd(i-1)*L%a(i));
+  !%end
+  !$$$Lf(1:N-5)=shp*dreal(Lf(1:N-5)); ! premulti (rev390)
+  i=N-4;
+  xyc(0)=dcmplx(a(3),0d0)
+  xyc(1)=-Lf(i-3)*Dd(i-3)*Lc(i)
+  xyc(2)=-Lf(i-2)*Dd(i-2)*Lb(i)
+  xyc(3)=-Lf(i-1)*Dd(i-1)*La(i)
+  call Sum2cmplx(4,xyc,Lf(i))
+  Lf(i)=Ddm1(i)*Lf(i)
+  !Lf(i)=Ddm1(i)*(a(3)-Lf(i-3)*Dd(i-3)*Lc(i)-Lf(i-2)*Dd(i-2)*Lb(i) &
+  !                      -Lf(i-1)*Dd(i-1)*La(i));
+  
+  i=N-3;
+  xyc(0)=dcmplx(a(2),0d0)
+  xyc(1)=-Lf(i-3)*Dd(i-3)*Lc(i)
+  xyc(2)=-Lf(i-2)*Dd(i-2)*Lb(i)
+  xyc(3)=-Lf(i-1)*Dd(i-1)*La(i)
+  call Sum2cmplx(4,xyc,Lf(i))
+  Lf(i)=Ddm1(i)*Lf(i)
+  !!Lf(i)=Ddm1(i)*(a(2)-Lf(i-3)*Dd(i-3)*Lc(i)-Lf(i-2)*Dd(i-2)*Lb(i) &
+  !!                      -Lf(i-1)*Dd(i-1)*La(i));
+
+  i=N-2;
+  xyc(0)=dcmplx(a(1),0d0)
+  do k=1,(N-3)
+     xyc(k)=-Lf(k)*dconjg(Le(k))*Dd(k);
+  end do
+  call Sum2cmplx(i,xyc,Lf(i))
+  Lf(i)= Ddm1(j)*Lf(i)
+  !tmp=zrr;
+  !do k=1,(N-3)
+  !   tmp=tmp+Lf(k)*dconjg(Le(k))*Dd(k);
+  !end do
+  !Lf(i)= Ddm1(j)*(a(1) - tmp);
+  !%%%
+  j=N-1;
+  xy(0)=a(0)
+  do k=1,(N-2)
+     xy(k)=-dreal(Lf(k)*dconjg(Lf(k)))*Dd(k);
+  end do
+  call Sum2(j,xy,Dd(j)) 
+  !tmpr=0.d0;
+  !do k=1,(N-2)
+  !   tmpr=tmpr+dreal(Lf(k)*dconjg(Lf(k)))*Dd(k);
+  !end do
+  !Dd(j)=a(0) - tmpr;
+  Ddm1(j)=1.d0/Dd(j)
+  !%
+  !%Lg(1)=1/Dd(1)*a(1)*shp;
+  !%i=2;
+  !%  Lg(i)=1/Dd(i)*(a(2)*shp-Lg(i-1)*Dd(i-1)*La(i));
+  !%i=3;
+  !%  Lg(i)=1/Dd(i)*(a(3)*shp-Lg(i-2)*Dd(i-2)*Lb(i)-Lg(i-1)*Dd(i-1)*La(i));
+  !%for i=4:(N-4)
+  !%  Lg(i)=1/Dd(i)*(-Lg(i-3)*Dd(i-3)*Lc(i)-Lg(i-2)*Dd(i-2)*Lb(i)-Lg(i-1)*Dd(i-1)*La(i));
+  !%end
+  !$$$Lg(1:N-4)=dreal(Lg(1:N-4))*shp; ! premulti (rev390)
+  i=N-3;
+  xyc(0)=dcmplx(a(3),0d0)
+  xyc(1)=-Lg(i-3)*Dd(i-3)*Lc(i)
+  xyc(2)=-Lg(i-2)*Dd(i-2)*Lb(i)
+  xyc(3)=-Lg(i-1)*Dd(i-1)*La(i)
+  call Sum2cmplx(4,xyc,Lg(i))
+  Lg(i)= Ddm1(i)*Lg(i)
+  !!Lg(i)=Ddm1(i)*(a(3)-Lg(i-3)*Dd(i-3)*Lc(i)-Lg(i-2)*Dd(i-2)*Lb(i) &
+  !!                      -Lg(i-1)*Dd(i-1)*La(i));
+  !%
+  i=N-2;
+  xyc(0)=dcmplx(a(2),0d0)
+  do k=1,(i-1)
+     xyc(k)= -Lg(k)*dconjg(Le(k))*Dd(k);
+  end do
+  call Sum2cmplx(i,xyc,Lg(i))
+  Lg(i)= Ddm1(i)*Lg(i)
+  !tmp=zrr;
+  !do k=1,(i-1)
+  !   tmp=tmp+Lg(k)*dconjg(Le(k))*Dd(k);
+  !end do
+  !Lg(i)= Ddm1(i)*(a(2) - tmp); !%^\ast
+  !%
+  i=N-1;
+  xyc(0)=dcmplx(a(1),0d0)
+  do k=1,(i-1)
+     xyc(k) = -Lg(k)*dconjg(Lf(k))*Dd(k);
+  end do
+  call Sum2cmplx(i,xyc,Lg(i))
+  Lg(i)= Ddm1(i)*Lg(i); 
+  !tmp=zrr;
+  !do k=1,(i-1)
+  !   tmp=tmp+Lg(k)*dconjg(Lf(k))*Dd(k);
+  !end do
+  !Lg(i)= Ddm1(i)*(a(1) - tmp); !%^\ast
+  !%
+  j=N;
+  xy(0)=a(0)
+  do k=1,N-1
+     xy(k)=-dreal(Lg(k)*dconjg(Lg(k)))*Dd(k);
+  end do
+  call Sum2(j,xy,Dd(j)) 
+  !tmpr=0.d0;
+  !do k=1,N-1
+  !   tmpr=tmpr+dreal(Lg(k)*dconjg(Lg(k)))*Dd(k);
+  !end do
+  !Dd(j)=a(0) - tmpr;
+  Ddm1(j)=1.d0/Dd(j)
+  !%
+  cLe=dconjg(Le);
+  cLf=dconjg(Lf);
+  cLg=dconjg(Lg);
+  !%%% check 
+  !det = sum(Dd)
+  !write(*,*) 'modChol_addshear: det = ', det 
+  !deallocate(xy)
+  !deallocate(xyc)
+
+end subroutine modChol_addshear
+
+
+!***********************************************************************
+!    subroutine for forward- and backward-substitution 
+!    solve A x = bb, by modified Cholesky decomposition A=(LDL*)
+!
+! La, ..., is the vectors which stores the elements of L as follows
+! for i=4:nx-3
+!   Lc(i)=L(i,i-3); 
+! end
+! for i=3:nx-3
+!   Lb(i)=L(i,i-2);
+! end
+! for i=2:nx-3
+!   La(i)=L(i,i-1);
+! end
+! for i=1:nx
+!   Dd(i)=D(i,i);
+! end
+! for i=1:nx-3
+!   Le(i)=L(N-2,i);
+! end
+! for i=1:nx-2
+!   Lf(i)=L(N-1,i);
+! end
+! for i=1:nx-1
+!   Lg(i)=L(N,i);
+! end               
+!***********************************************************************
+subroutine solve7cyclic(La,Lb,Lc,Dd,Ddm1,Le,Lf,Lg,cLe,cLf,cLg,bb,x,y,nx)
+  use eft
+  use eft_buff
+  implicit none
+  
+  integer nx
+  real*8 La(nx),Lb(nx),Lc(nx),Dd(nx),Ddm1(nx)
+  !
+  complex*16 Le(nx),Lf(nx),Lg(nx),cLe(nx),cLf(nx),cLg(nx)
+  real*8 A(-3:3)
+  complex*16 tmp
+  complex*16 bb(nx),x(nx),y(nx)
+  integer i,j,k
+  !complex*16, allocatable:: xyc(:),yy(:),xx(:)
+
+  !allocate(xyc(0:nx), yy(0:3))
+  ! forwardsubstitution
+  y(1)= bb(1);
+  !!y(2)=bb(2)-La(2)*y(1);
+  !!y(3)=bb(3)-(Lb(3)*y(1)+La(3)*y(2));
+  yy(0)= bb(2); 
+  yy(1)=-La(2)*y(1);
+  call Sum2cmplx(2,yy,y(2))
+  yy(0)= bb(3); 
+  yy(1)=-Lb(3)*y(1); 
+  yy(2)=-La(3)*y(2);
+  call Sum2cmplx(3,yy,y(3))
+  do i=4,nx-3
+     yy(0) = bb(i); 
+     yy(1) = -Lc(i)*y(i-3)
+     yy(2) = -Lb(i)*y(i-2)
+     yy(3) = -La(i)*y(i-1)
+     call Sum2cmplx(4,yy,y(i))
+     !!y(i)=bb(i)-(Lc(i)*y(i-3)+Lb(i)*y(i-2)+La(i)*y(i-1));
+  end do
+  !extra three lines
+  i=nx-2;
+  !tmp=dcmplx(0.d0,0.d0);
+  ! (trial1) does not work?
+  !call Mul2cmplx(i-1,Le(1:i-1),y(1:i-1),tmp) ! does not work?
+  ! (trial2)
+  xyc(0)=bb(i);
+  do k=1,i-1
+     xyc(k)=-Le(k)*y(k); 
+  end do
+  call Sum2cmplx(i,xyc,y(i))
+  !! original 
+  !!do k=1,i-1
+  !!   tmp=tmp+Le(k)*y(k); ! this is not dot product...
+  !!end do
+  !!y(i)=bb(i)-tmp;
+
+  i=nx-1;
+  !tmp=dcmplx(0.d0,0.d0); 
+  xyc=0.d0;
+  !
+  xyc(0)=bb(i)
+  do k=1,i-1
+     xyc(k)=-Lf(k)*y(k); 
+  end do
+  call Sum2cmplx(i,xyc,y(i))
+  !! original
+  !!do k=1,i-1
+  !!   tmp=tmp+Lf(k)*y(k);
+  !!end do
+  !!y(i)=bb(i)-tmp;
+  
+  i=nx;
+  !tmp=dcmplx(0.d0,0.d0); 
+  xyc=0.d0;
+  !
+  xyc(0)=bb(i)
+  do k=1,i-1
+     xyc(k)=-Lg(k)*y(k); 
+  end do
+  call Sum2cmplx(i,xyc,y(i))
+  !! original 
+  !!do k=1,i-1
+  !!   tmp=tmp+Lg(k)*y(k);
+  !!end do
+  !!y(i)=bb(i)-tmp;
+  !deallocate(xyc,yy)
+  !
+  !allocate(xx(0:6))
+  ! backsubstitution
+  x(nx)  =y(nx)*Ddm1(nx);
+  !x(nx-1)=y(nx-1)*Ddm1(nx-1) - cLg(nx-1)*x(nx);
+  !x(nx-2)=y(nx-2)*Ddm1(nx-2) - cLf(nx-2)*x(nx-1) - cLg(nx-2)*x(nx);
+  !x(nx-3)=y(nx-3)*Ddm1(nx-3) - cLe(nx-3)*x(nx-2) - cLf(nx-3)*x(nx-1) - cLg(nx-3)*x(nx);
+  !x(nx-4)=y(nx-4)*Ddm1(nx-4) - La(nx-3)*x(nx-3) &
+  !     - cLe(nx-4)*x(nx-2) - cLf(nx-4)*x(nx-1) - cLg(nx-4)*x(nx);
+  !x(nx-5)=y(nx-5)*Ddm1(nx-5) - La(nx-4)*x(nx-4) - Lb(nx-3)*x(nx-3) &
+  !     - cLe(nx-5)*x(nx-2) - cLf(nx-5)*x(nx-1) - cLg(nx-5)*x(nx);
+  i=nx-1
+  xx(0)=y(i)*Ddm1(i)
+  xx(1)=0d0; xx(2)=0d0; xx(3)=0d0;
+  xx(4)=0.d0; xx(5)=0.d0;
+  xx(6)=-cLg(i)*x(nx)
+  call Sum2cmplx(7,xx,x(i))
+  i=nx-2
+  xx(0)=y(i)*Ddm1(i)
+  xx(1)=0d0; xx(2)=0d0; xx(3)=0d0;
+  xx(4)=0.d0;
+  xx(5)=-cLf(i)*x(nx-1) 
+  xx(6)=-cLg(i)*x(nx)
+  call Sum2cmplx(7,xx,x(i))
+  i=nx-3
+  xx(0)=y(i)*Ddm1(i)
+  xx(1)=0d0; xx(2)=0d0; xx(3)=0d0
+  xx(4)=-cLe(i)*x(nx-2)
+  xx(5)=-cLf(i)*x(nx-1) 
+  xx(6)=-cLg(i)*x(nx)
+  call Sum2cmplx(7,xx,x(i))
+  i=nx-4
+  xx(0)=y(i)*Ddm1(i)
+  xx(1)=-La(i+1)*x(i+1)
+  xx(2)=0d0; xx(3)=0d0
+  xx(4)=-cLe(i)*x(nx-2)
+  xx(5)=-cLf(i)*x(nx-1) 
+  xx(6)=-cLg(i)*x(nx)
+  call Sum2cmplx(7,xx,x(i))
+  i=nx-5
+  xx(0)=y(i)*Ddm1(i)
+  xx(1)=-La(i+1)*x(i+1)
+  xx(2)=-Lb(i+2)*x(i+2)
+  xx(3)=0d0
+  xx(4)=-cLe(i)*x(nx-2)
+  xx(5)=-cLf(i)*x(nx-1) 
+  xx(6)=-cLg(i)*x(nx)
+  call Sum2cmplx(7,xx,x(i))
+  do i=nx-6,1,-1
+     xx(0)=y(i)*Ddm1(i)
+     xx(1)=-La(i+1)*x(i+1)
+     xx(2)=-Lb(i+2)*x(i+2)
+     xx(3)=-Lc(i+3)*x(i+3)
+     xx(4)=-cLe(i)*x(nx-2)
+     xx(5)=-cLf(i)*x(nx-1) 
+     xx(6)=-cLg(i)*x(nx)
+     call Sum2cmplx(7,xx,x(i))
+     !!x(i)=y(i)*Ddm1(i) - La(i+1)*x(i+1) - Lb(i+2)*x(i+2) - Lc(i+3)*x(i+3) &
+     !!     - cLe(i)*x(nx-2) - cLf(i)*x(nx-1) - cLg(i)*x(nx);
+  end do
+
+  !deallocate(xx)
+
+end subroutine solve7cyclic
+
+!***********************************************************************
+!    subroutine for cyclicMatrix - vector product 
+!    including shifting by mean shear
+!***********************************************************************
+subroutine matvecNcyclic(A,uc,ur,bb,shp,shm,my,m,na)
+  !
+  ! A is cyclic (2*na+1) band matrix
+  !
+  implicit none
+  integer i,j,m,my,na,jmN 
+  real*8 A(-na:na)
+  complex*16 shp,shm,tmp
+  complex*16 uc(my),ur(my+8) 
+  complex*16 bb(my)
+
+  if (m.eq.1) then
+     ! for zeromode in x-dir 
+     ur(1:na)=uc(my-na+1:my);
+     ur(na+1:my+na)=uc(:);
+     ur(my+na+1:my+2*na)=uc(1:na);
+
+  else
+     shm=dconjg(shp)
+     ur(1:na)=uc(my-na+1:my)*shm;
+     ur(na+1:my+na)=uc(:);
+     ur(my+na+1:my+2*na)=uc(1:na)*shp;
+
+  endif
+
+  do j=1+na,my+na
+     jmN = j-na
+     tmp=dcmplx(0.d0,0.d0)
+     do i=-na,na
+        tmp = tmp+ dcmplx(A(i),0.d0)*ur(j+i)
+     end do
+     bb(jmN) = tmp
+     !bb(jmN) = sum(dcmplx(A(:),0.d0)*ur(j-na:j+na))
+     !write(*,*) bb(jmN)
+  enddo
+
+end subroutine matvecNcyclic
+
+
+!***********************************************************************
+!    SUBRUTINAS PARA TRABAJAR CON n-DIAGONALES
+!    (Numerical Recipes in FORTRAN)
+!      bandec, banbks
+!      Solo para liso---
+!***********************************************************************
+
+SUBROUTINE banbks7(a,n,b)
+  INTEGER n
+  REAL*8 a(7,n),b(n)
+  INTEGER i,k
+
+  do k=1,n-3
+     b(k+1) = b(k+1)-a(5,k)*b(k)
+     b(k+2) = b(k+2)-a(6,k)*b(k)
+     b(k+3) = b(k+3)-a(7,k)*b(k)
+  enddo
+
+  !     n-2
+
+  b(n-1) = b(n-1)-a(5,n-2)*b(n-2)
+  b(n)   = b(n)  -a(6,n-2)*b(n-2)
+
+  !     n-1
+
+  b(n) = b(n)    -a(5,n-1)*b(n-1)
+
+  !     back substitution
+
+  b(n) = b(n)*a(1,n)
+  b(n-1) = (b(n-1)-a(2,n-1)*b(n))*a(1,n-1)
+  b(n-2) = (b(n-2)-a(2,n-2)*b(n-1)-a(3,n-2)*b(n))*a(1,n-2)
+
+  do i=n-3,1,-1
+     b(i) = (b(i)-a(2,i)*b(1+i)-a(3,i)*b(2+i)-a(4,i)*b(3+i))*a(1,i)
+  enddo
+
+END SUBROUTINE banbks7
+
+
+!!!!!!!!!! -----------------------------------
+subroutine bandec7(a,n)
+  INTEGER n
+  REAL*8 a(7,n)
+  INTEGER j,k
+  !
+  do j=1,4
+     a(j,1)=a(j+3,1)
+  enddo
+
+  do j=1,5
+     a(j,2)=a(j+2,2)
+  enddo
+
+  do j=1,6
+     a(j,3)=a(j+1,3)
+  enddo
+
+
+  !     LU
+
+  do k=1,n-3
+     a(1,k)   = 1d0/a(1,k)
+
+     a(5,k)   = a(1,k+1)*a(1,k)
+     a(1,k+1) = a(2,k+1)-a(5,k)*a(2,k)
+     a(2,k+1) = a(3,k+1)-a(5,k)*a(3,k)
+     a(3,k+1) = a(4,k+1)-a(5,k)*a(4,k)
+     a(4,k+1) = a(5,k+1)
+
+     a(6,k)   = a(1,k+2)*a(1,k)
+     a(1,k+2) = a(2,k+2)-a(6,k)*a(2,k)
+     a(2,k+2) = a(3,k+2)-a(6,k)*a(3,k)
+     a(3,k+2) = a(4,k+2)-a(6,k)*a(4,k)
+     a(4,k+2) = a(5,k+2)
+     a(5,k+2) = a(6,k+2)
+
+     a(7,k)   = a(1,k+3)*a(1,k)
+     a(1,k+3) = a(2,k+3)-a(7,k)*a(2,k)
+     a(2,k+3) = a(3,k+3)-a(7,k)*a(3,k)
+     a(3,k+3) = a(4,k+3)-a(7,k)*a(4,k)
+     a(4,k+3) = a(5,k+3)
+     a(5,k+3) = a(6,k+3)
+     a(6,k+3) = a(7,k+3)
+
+  enddo
+
+  !     k=n-2
+  a(1,n-2) = 1d0/a(1,n-2)
+
+  a(5,n-2) = a(1,n-1)*a(1,n-2)
+
+  a(1,n-1) = a(2,n-1)-a(5,n-2)*a(2,n-2)
+  a(2,n-1) = a(3,n-1)-a(5,n-2)*a(3,n-2)
+  a(3,n-1) = a(4,n-1)-a(5,n-2)*a(4,n-2)
+  a(4,n-1) = a(5,n-1)
+
+  a(6,n-2) = a(1,n)*a(1,n-2)
+
+  a(1,n)   = a(2,n)-a(6,n-2)*a(2,n-2)
+  a(2,n)   = a(3,n)-a(6,n-2)*a(3,n-2)
+  a(3,n)   = a(4,n)-a(6,n-2)*a(4,n-2)
+  a(4,n)   = a(5,n)
+  a(5,n)   = a(6,n)
+
+  !     k=n-1
+
+  a(1,n-1) = 1d0/a(1,n-1)
+  a(5,n-1) = a(1,n)*a(1,n-1)
+
+  a(1,n)   = a(2,n)-a(5,n-1)*a(2,n-1)
+  a(2,n)   = a(3,n)-a(5,n-1)*a(3,n-1)
+  a(3,n)   = a(4,n)-a(5,n-1)*a(4,n-1)
+  a(4,n)   = a(5,n)
+
+  !     the next loop will be used in banbk
+
+  a(1,n)=1d0/a(1,n)
+
+END SUBROUTINE bandec7
+
+
+!**************************************************
+!*    SUBRUTINA PARA RESOLVER SIST LINEALES
+!*    (Numerical Recipes in FORTRAN)
+!**************************************************
+SUBROUTINE gaussj(a,n,np,b,m,mp)
+  INTEGER m,mp,n,np,NMAX
+  REAL(8) a(np,np),b(np,mp)
+  PARAMETER (NMAX=50)
+  INTEGER i,icol,irow,j,k,l,ll,indxc(NMAX),indxr(NMAX),ipiv(NMAX)
+  REAL(8) big,dum,pivinv
+  do j=1,n
+     ipiv(j)=0
+  enddo
+  do i=1,n
+     big=0d0
+     do j=1,n
+        if(ipiv(j).ne.1)then
+           do  k=1,n
+              if (ipiv(k).eq.0) then
+                 if (dabs(a(j,k)).ge.big)then
+                    big=dabs(a(j,k))
+                    irow=j
+                    icol=k
+                 endif
+              else if (ipiv(k).gt.1) then
+                 pause 'singular matrix in gaussj'
+              endif
+           enddo
+        endif
+     enddo
+
+     ipiv(icol)=ipiv(icol)+1
+     if (irow.ne.icol) then
+        do  l=1,n
+           dum=a(irow,l)
+           a(irow,l)=a(icol,l)
+           a(icol,l)=dum
+        enddo
+        do  l=1,m
+           dum=b(irow,l)
+           b(irow,l)=b(icol,l)
+           b(icol,l)=dum
+        enddo
+     endif
+     indxr(i)=irow
+     indxc(i)=icol
+     if (a(icol,icol).eq.0.) pause 'singular matrix in gaussj'
+     pivinv=1d0/a(icol,icol)
+     a(icol,icol)=1d0
+     do  l=1,n
+        a(icol,l)=a(icol,l)*pivinv
+     enddo
+     do  l=1,m
+        b(icol,l)=b(icol,l)*pivinv
+     enddo
+     do  ll=1,n
+        if(ll.ne.icol)then
+           dum=a(ll,icol)
+           a(ll,icol)=0d0
+           do  l=1,n
+              a(ll,l)=a(ll,l)-a(icol,l)*dum
+           enddo
+           do  l=1,m
+              b(ll,l)=b(ll,l)-b(icol,l)*dum
+           enddo
+        endif
+     enddo
+  enddo
+
+  do  l=n,1,-1
+     if(indxr(l).ne.indxc(l))then
+        do  k=1,n
+           dum=a(k,indxr(l))
+           a(k,indxr(l))=a(k,indxc(l))
+           a(k,indxc(l))=dum
+        enddo
+     endif
+  enddo
+
+END subroutine gaussj

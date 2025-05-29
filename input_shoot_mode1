@@ -1,0 +1,8 @@
+../ini/upo.0018
+./pool/shoot
+../arnoldi/arnoldi_sym5_eigf.0001
+0.2    ! shooting parameter 0<lam<1
+200    ! time period *Ts
+2      ! num (number of trials)
+1      ! shooting mode
+-0.1   ! base perturbation, UPO +[base + lam*(num-1)]*eigf

@@ -1,0 +1,43 @@
+###################################################################
+# include file for an individual machine by A.Sekimoto   
+#    ltrac mec (local machine)
+########################################################### machine
+SYSTEM = oakforest intel, take care for endian #
+# $ module load fftw/3.3.7
+# $ module load intel/2018.1.163
+# $ module load phdf5/1.8.17
+########################################################## compiler
+F90 = mpiifort
+#
+CMPI_LIB =
+OMP_FLAGS =
+#
+########################################################### library
+#LAPACKDIR = /usr/lib/
+MKLDIR = /usr/local/intel2017_up4/mkl/lib/intel64/
+HDF5LIB = /opt/hdf5_intel/lib/ 
+HDF5INC = /opt/hdf5_intel/include/ 
+FFTWINC = /usr/include/
+#
+BLAS = blas # interface library (GNU fortran)
+EXTLIBS = -L$(MKLDIR) -mkl=sequential 
+EXTHDF5 = -L$(HDF5LIB) -lhdf5_fortran -lhdf5 -lhdf5hl_fortran
+EXTFFTW = -I$(FFTWINC) -lfftw3 -lfftw3_omp
+#################################################### compiler flags
+#
+INCLUDE = # -I/usr/include -L/usr/local/intel2017_up4/mkl/include
+LIBRARY= $(EXTLIBS) $(EXTHDF5) $(EXTFFTW)  
+#
+OPTIONS= -qopenmp -axMIC-AVX512
+#
+F90OPT = -c $(OPTIONS) $(LIBRARY) $(INCLUDE) 
+LFOPT  = -v $(OPTIONS) $(LIBRARY) $(INCLUDE)  
+#
+#
+F90DEBUG =  -c -g -C -assume byterecl
+LFDEBUG  = -v -g -static -C $(EXTLIBS) $(EXTHDF5)
+#
+F77=$(F90)
+F77FLAGS = $(F90OPT) 
+LFLAGS = $(LFOPT)
+##############################################################  END

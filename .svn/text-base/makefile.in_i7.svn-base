@@ -1,0 +1,59 @@
+###################################################################
+# include file for an individual machine by A.Sekimoto   
+#    nauja.dmt.upm.es (local machine)
+########################################################### machine
+SYSTEM = intel #
+########################################################## compiler
+#F90 = mpif90
+F90 = h5pfc 
+#
+#F90_HDF5 = h5pfc 
+CMPI_LIB =
+OMP_FLAGS =
+#
+########################################################### library
+LAPACKDIR = /usr/lib/
+MKLDIR = /opt/intel/Compiler/11.1/056/mkl/lib/em64t/
+HDF5LIB = /opt/hdf5_intel/lib/
+FFTWLIB = /opt/fftw3.2.2/lib/
+#
+BLAS = mkl_intel_lp64 # interface library (GNU fortran)
+#LAPACK = mkl_lapack
+LAPACK = mkl_lapack95_lp64
+EXTLIBS = -L$(MKLDIR) -l$(LAPACK) -l$(BLAS) \
+-lmkl_sequential -lmkl_core #-lguide -lpthread  # use sequential thread
+#-lmkl_intel_thread -lmkl_core -liomp5 -lpthread # use thread
+#-lfftw3
+EXTHDF5 = -L$(HDF5LIB) -lhdf5_fortran -lhdf5
+EXTFFTW = -L$(FFTWLIB) -lfftw3 -lm
+#################################################### compiler flags
+#
+#F90OPT = -c -O3 -opt-report -warn noalignments -assume byterecl 
+#LFOPT  = -O3 $(EXTLIBS) $(EXTHDF5) 
+# -check bounds
+#F90OPT = -c -O3  -assume byterecl -check bounds 
+F90OPT = -c -O3  -assume byterecl
+LFOPT  = -O3  $(EXTLIBS) $(EXTHDF5) 
+#
+#F90OPT = -c -O3  -zero -assume byterecl
+#LFOPT  = -O3  $(EXTLIBS) $(EXTHDF5) 
+#
+#F90OPT = -c -O3 -axSSE4.2  -assume byterecl
+#LFOPT  = -O3 -axSSE4.2  $(EXTLIBS) $(EXTHDF5) 
+#
+#F90OPT =  -c -O0 -fp-model precise -fp-model source -assume byterecl 
+#LFOPT  =  -O0 $(EXTLIBS) $(EXTHDF5) $(EXTFFTW)
+#
+#F90OPT = -pg -c -assume byterecl -vec-report3
+#LFOPT  = -pg $(EXTLIBS) $(EXTHDF5) 
+#
+#F90OPT = -prof-gen -prof-file prof_gen_ifort.txt -c -assume byterecl 
+#LFOPT  = -prof-gen -prof-file prof_gen_ifort.txt $(EXTLIBS) $(EXTHDF5) 
+# feedback from prof-gen
+#F90OPT = -prof-use -c -assume byterecl 
+#LFOPT  = -prof-use $(EXTLIBS) $(EXTHDF5) 
+#
+F90DEBUG =  -c -g -C -assume byterecl -zero
+LFDEBUG  = -v -g -static -C $(EXTLIBS) $(EXTHDF5)
+#
+##############################################################  END

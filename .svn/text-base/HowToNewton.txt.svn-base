@@ -1,0 +1,137 @@
+====== How to run newton with many options =====
+
+[*] compile
+
+make newton
+
+[*] the setting file ( hre3.dat ) is required for newton program, 
+in addition to hre2.dat. 
+-- please copy hre3.dat in the working folder (the same place of hre2.dat) the default option is used..., hre3.dat should be finished by the line 
+
+-- The normal DNS/LES run of 'disk3d' also uses hre3.dat.
+
+-- see the test runs, all of the revision of newton code should be checked.
+ 
+/wamba12/sekimoto/test_case_upo1
+ 
+
+HREEND
+
+[*] options for newton method of SS-HST 
+
+If you did not set option, the default values are used. 
+see subroutine set_options() 
+
+=== general options (disk3d and newton) ===
+The structure of options
+--------------
+command
+1 
+[...]
+--------------
+
+(*) set the file dump mode  
+
+idump_mode [default:0 using nimag in hre2.dat]
+2     ! for constant time intervals. 
+200 5 ! this means 200 box period, dumping snapshots at every 1/5 box-period
+      ! [6 10] is used for 6Tp-UPO movie. 
+
+
+(*) set symmetry as below. 
+!symmetry     ! 5: shift-refrection
+              ! 6: mirror-symmetry
+              ! 7: rotation-refrection for varicose (UPO4)
+              ! 8: rotation-refrection for sinuous
+! if the initial condition does not have symmetry, shift in x and z, appropliately
+
+iadd_sym
+5
+0.d0 0.d0  
+
+
+- [iadd_force] ! testing option for streamwise rollers (2-pair as in Itano2006, 4-vortex tyep)
+- [iadd_damping] ! testing option for windowing HST simulation in tall box...
+
+(*) set the time stepping scheme
+![1: default explicit time stepping, 0: implicit time stepping ]
+explicit 
+1
+
+(*) set LES 
+
+iuse_LES [default is 0 to do DNS]
+1
+0 0 0.17 ! idynamic, 0:smagorinsky ! iadd_visc ! Cs
+
+(*) [LES option] keep the Cs*Delta of the initial condition (iread_footer=1 and above Cs is ignored)
+Use this for changing grid size. 
+
+ifix_CsDeltag [default is 0]
+1
+
+(*) read additional parameter written in footer (Deltag and Cs, etc), 
+the original code does not have this footer.
+To read the original data, set iread_footer=0. [Default is iread_footer=1] 
+
+iread_footer
+0
+
+(*) skip screen output, the time history is written in .cf or .cfbin....
+In the newton iteration, the screenoutput is very redundunt.
+
+iskip_screenout
+1
+
+=== suboptions for newton ===
+[*] see set_newton_options() in gmres_shear.f90
+Do not use the testing options.
+
+(*) This set the newton mode 
+
+isol_mode
+3  ! 3,UPO; 4,RPOxz; 5,UPOt; 6,RPOxzt
+2  ! search an UPO with the multiple of a box period, m*Lx/Ly.  
+0.d0  0.d0  0.d0 ! shiftx0, shifty0, shiftz0 ! set initial shift, this should be consistent with the symmetry.
+
+- [inorm] ! do not use this (testing several norms) 
+
+(*) If you want the temporal data at each iteration of newton method. set 
+
+iskip_save
+0
+
+(*) arclength mode... iread_footer=1 is required...
+! 1, use arclength; -1, simply change the parameter.
+
+iarclength
+./pool/var.0000   ![the neighbour solution is required for the tangent of solution curve]
+0.1d0 Ayz         ![arclength parameter and continuation parameter: Axz Ayz Rez, Cles, ... ]
+10                ![the number of iteration]
+
+(*) the accuracy of the matrix-vector product [default is 1 (first order), 2 (for central difference)].
+
+iopt_matvec	 
+1
+
+(*) set the option for throwing flow field to the unknown vector.
+[iuse_ffty = 1, use Fourier in y for 00modes of U,W]
+[iuse_us=1 is for velocity norm, instead of Fourier modes of oy]
+[iuse_v=1 (default is 1) is for velocity norm instead of (lap.v) ]
+
+iuse_ffty
+0
+
+iuse_us
+1
+
+- [iuse_mpc] ! not updated from 2014 september (testing for preconditioning)
+- [ifilter] ! not updated from 2014 september
+- [iremove_singularity] ! testing
+- [iuse_scaling] ! testing
+- [iuse_compensatory_norm]
+
+(*) the orthogonarization option. In  default, QR decomposition (requires double of memory) is used for the good accuracy of orthogonarization. 
+
+iuse_QR_orth 
+1

@@ -1,0 +1,1 @@
+tar -cvf shear_rev430.tar log_changes *.f90 *.f *.F makefile* hre.dat *.sh run_tar
