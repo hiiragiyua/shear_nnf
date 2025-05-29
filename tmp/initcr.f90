@@ -1,7 +1,7 @@
 ! ********************************************************************/
-!
-!                  initializes everything
-!
+! 
+!                  initializes everything 
+!                    
 ! ********************************************************************/
 subroutine initcr(iopt_ini)
 
@@ -21,7 +21,7 @@ subroutine initcr(iopt_ini)
 
   integer mybu,mzbu,i,j,k,iproc,nspsize,n1,n2
   ! --------------------------------------------------
-  ! set paramter shared by 'use ctes',  see mod.f90
+  ! set paramter shared by 'use ctes',  see mod.f90 
   pi  = 4d0*atan(1d0)
   pi2 = 2d0*pi
   cii = dcmplx(0.d0,1.d0)
@@ -32,13 +32,13 @@ subroutine initcr(iopt_ini)
   end if
   ! set run output control options
   noescru=0 ! 1: for no output and skip allocation of sp, spl
-  nohist =0 ! 1: skip screen output and writing cf files
+  nohist =0 ! 1: skip screen output and writing cf files 
   nocf = 0 ! 1, skip writeing cf files (only for nohist = 0 )
   iskip_screenout = 0
   !
   iohre=19
 
-  iinp=32    ! file numbers
+  iinp=32    ! file numbers 
   ispf=35
 
   isn=33
@@ -51,7 +51,7 @@ subroutine initcr(iopt_ini)
 
   filext='' ! default extension is nothing
 
-  if (iopt_ini.eq.0) then
+  if (iopt_ini.eq.0) then 
      !    
      if(myid.eq.0) then
         !open(iohre,file='hre.dat',status='old')
@@ -61,40 +61,40 @@ subroutine initcr(iopt_ini)
         ndat  = 0
         nidat = 0
         ! -------- mgalx, my, mgalz, ik2ki, ki2ik:  idat(1:5)
-        call rtext(text,dat,idat,ndat,nidat,0,5,iohre)
-
+        call rtext(text,dat,idat,ndat,nidat,0,5,iohre)  
+        
         ! -------- Re alp Ly/pi gam s chi CFL:  dat(1:7)
-        call rtext(text,dat,idat,ndat,nidat,7,0,iohre)
-
+        call rtext(text,dat,idat,ndat,nidat,7,0,iohre)  
+        
         ! --------  nstep, nimag, nhist, readflag, ifile:  idat(6:10)
-        call rtext(text,dat,idat,ndat,nidat,0,5,iohre)
-
+        call rtext(text,dat,idat,ndat,nidat,0,5,iohre)  
+        
         ! --------   pmesp, uprim:  dat(8:9)
-        call rtext(text,dat,idat,ndat,nidat,2,0,iohre)
-
+        call rtext(text,dat,idat,ndat,nidat,2,0,iohre)  
+        
         !
-        ! --------  files
-        call rtext(filout,dat,idat,ndat,nidat,0,0,iohre)
-        call rtext(filinp,dat,idat,ndat,nidat,0,0,iohre)
-
+        ! --------  files      
+        call rtext(filout,dat,idat,ndat,nidat,0,0,iohre)  
+        call rtext(filinp,dat,idat,ndat,nidat,0,0,iohre)  
+        
         close(iohre)
-
+        
         do iproc=1,numerop-1
-
+           
            call MPI_SEND(ndat,1,MPI_INTEGER,iproc,iproc,MPI_COMM_WORLD,ierr)
            call MPI_SEND(nidat,1,MPI_INTEGER,iproc,iproc,MPI_COMM_WORLD,ierr)
            call MPI_SEND(dat,ndat,MPI_REAL8,iproc,iproc,MPI_COMM_WORLD,ierr)
            call MPI_SEND(idat,nidat,MPI_INTEGER,iproc,iproc,MPI_COMM_WORLD,ierr)
-
+           
         enddo
-
+        
      else
-
+        
         call MPI_RECV(ndat,1,MPI_INTEGER,0,MPI_ANY_TAG,MPI_COMM_WORLD,istat,ierr)
         call MPI_RECV(nidat,1,MPI_INTEGER,0,MPI_ANY_TAG,MPI_COMM_WORLD,istat,ierr)
         call MPI_RECV(dat,ndat,MPI_REAL8,0,MPI_ANY_TAG,MPI_COMM_WORLD,istat,ierr)
         call MPI_RECV(idat,nidat,MPI_INTEGER,0,MPI_ANY_TAG,MPI_COMM_WORLD,istat,ierr)
-
+        
      endif
 
      Re    = dat(1) ! 1/nu
@@ -106,32 +106,32 @@ subroutine initcr(iopt_ini)
      Ly = dat(3)
      !bet = pi2/Ly
      if (myid.eq.0) write(*,*)  ' Ly = ', Ly
-
+     
      ! originally dat(3) is assumed to be Ly/pi
-     if ((Ly.gt.(0.636)).and.(Ly.lt.(0.637))) then
-        if(myid.eq.0) write(*,*) '(rev.583) Ly ERROR: check hre2.dat', &
+     if ((Ly.gt.(0.636)).and.(Ly.lt.(0.637))) then 
+        if(myid.eq.0) write(*,*) '(rev.583) Ly ERROR: check hre2.dat', &  
              'you need to input Ly at the column of Ly/pi', Ly
         stop
      endif
-
-     ! the different Ly (say, 1.0 etc) may lead to big boundary error
+     
+     ! the different Ly (say, 1.0 etc) may lead to big boundary error  
      gam   = dat(4)
-
+     
      s     = dat(5)
      chi   = dat(6) ! rotation is not implemented
      cfl   = dat(7)
      pmesp = dat(8)
      uprim = dat(9)
-
-     mgalx = idat(1)
-     my    = idat(2)
-     mgalz = idat(3)
-     blockingik2ki = idat(4)
+     
+     mgalx = idat(1)   
+     my    = idat(2)   
+     mgalz = idat(3)   
+     blockingik2ki = idat(4) 
      blockingki2ik = idat(5)
      nstep = idat(6)
      nimag = idat(7)
      nhist = idat(8)
-     readflag = idat(9)
+     readflag = idat(9)  
      ifile = idat(10)
 
   else if (iopt_ini.eq.1) then
@@ -146,10 +146,10 @@ subroutine initcr(iopt_ini)
         write(*,*) 'set output basefile name, including output dir'
         read(*,'(a)') ctmp
         filout=trim(ctmp)
-     end if
+     end if 
      call  MPI_BCAST(filinp,128,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr)
      call  MPI_BCAST(filout,128,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr)
-
+ 
      call get_header()
      Re=Ree
      alp=alpe
@@ -158,8 +158,8 @@ subroutine initcr(iopt_ini)
      s=se
      chi=chie
 
-     cfl=0.6 ! set as a default, later it can be overwritten in getfil(...)
-
+     cfl=0.6 ! set as a default, later it can be overwritten in getfil(...) 
+  
      pmesp=1.d0; uprim=1.d0;
      !mgalx=mgalxe
      !my=mye
@@ -173,36 +173,36 @@ subroutine initcr(iopt_ini)
      readflag=1
      ifile=0
 
-  else
+  else 
      write(*,*) 'not implemented, initcr (iopt),iopt_ini=',iopt_ini
      stop
 
   end if
 
   call MPI_BARRIER(MPI_COMM_WORLD,ierr)
-
+  
   id22=ifile
 
   ! --- this used to be ctes ---
 
-  if ((mgalx.eq.0).or.(my.eq.0).or.(mgalz.eq.0)) then
+  if ((mgalx.eq.0).or.(my.eq.0).or.(mgalz.eq.0)) then 
      write(*,*) 'mgalx grid error',mgalx,my,mgalz
   end if
-  mx = 2*(mgalx/3)
+  mx = 2*(mgalx/3) 
   mz = 2*(mgalz/3)-1
-
+  
   mgalx1=mgalx-1
   mgalz1=mgalz-1
-  mx1=mx/2-1
+  mx1=mx/2-1 
   my1=my-1
   mz1=mz-1
-
+  
   mgx=mgalx/2
   nz=(mz-1)/2
   nz1=nz
   nz2=mgalz-nz
 
-  ! for dealiasing in y
+  ! for dealiasing in y 
   mgy=my/2;
   my23 = 2*(my/3);
   ny=((my23-1)-1)/2
@@ -231,11 +231,11 @@ subroutine initcr(iopt_ini)
   etime=1.d10
   dumptime=1.d10
   dtimag=etime
-  timep_sh=(2.d0*pi/alp)/(abs(s)*Ly) ! set initial shearing-box period
+  timep_sh=(2.d0*pi/alp)/(abs(s)*Ly) ! set initial shearing-box period 
 
   ! --------------- this used to be pointers --
   allocate (jbeg(0:numerop-1),jend(0:numerop-1))
-  allocate (kbeg(0:numerop-1),kend(0:numerop-1))
+  allocate (kbeg(0:numerop-1),kend(0:numerop-1))   
   n1=my/numerop
   n2=my-numerop*n1
 
@@ -249,7 +249,7 @@ subroutine initcr(iopt_ini)
      jbeg(i+1)= jend(i)+1
   enddo
   jend(numerop-1)=jbeg(numerop-1)+n1-1
-
+  
   n1=mz/numerop
   n2=mz-numerop*n1
 
@@ -300,16 +300,16 @@ subroutine initcr(iopt_ini)
   !    ------------  initializes fast fourier transforms and CFDiff ----
   call cfti(mgalz)
   call rfti(mgalx) ! note: initialized again in getini_TG and so on...
-                   !       clean-up is added from rev.395
+                   !       clean-up is added from rev.395 
   call ffti(mgalx,mgalz) ! for threaded 2D-FFT
-
-  call rfti_y(my)
+  
+  call rfti_y(my) 
   call cfti_y(my)
   ! --------------  initialize stats -------------
-  !! um vm wm up vp wp uvr uwr vwr o1m o2m o3m o1p o2p o3p eps uuv wwv vvv
+  !! um vm wm up vp wp uvr uwr vwr o1m o2m o3m o1p o2p o3p eps uuv wwv vvv    
   !! 1  2  3  4  5  6  7   8   9   10  11  12  13  14  15  16  17  18  19
 
-  !nstat = 19
+  !nstat = 19 
   !nstat = 20 !(rev.656)    20, Pk
   nstat = 23 !(rev.1230)    20, Pk; 21, ox*oy; 22, nuty; 23, disp_eddy
   allocate(stats(nstat,0:my1))
@@ -325,7 +325,7 @@ subroutine initcr(iopt_ini)
   ! later set stime0 after reading a file...
   !--------------  allocates spectra:  DO IT !!!
   !  nspecy = 180
-  !  nspecy = my/2 ! old format for channel flow
+  !  nspecy = my/2 ! old format for channel flow 
   nspecy = my ! donot touch this
 
   ! --------------  initialize spectra ------------
@@ -343,7 +343,7 @@ subroutine initcr(iopt_ini)
      sp = 0.0;  spl = 0.0
      sp2 = 0.0;  spl2 = 0.0
      if (itemperature.eq.1) then
-        allocate(spt(nspect,0:mx1,0:mz1),splt(nspect,0:mx1,0:mz1))
+        allocate(spt(nspect,0:mx1,0:mz1),splt(nspect,0:mx1,0:mz1))  
         spt = 0.d0; splt = 0.d0;
      end if
 
@@ -353,8 +353,8 @@ subroutine initcr(iopt_ini)
 
 !  call MPI_BARRIER(MPI_COMM_WORLD,ierr)
 !
-  allocate(shb(0:mx1),sht(0:mx1))
-  allocate(shwkb(0:mx1),shwkt(0:mx1)) ! changed to 1d array from rev.385
+  allocate(shb(0:mx1),sht(0:mx1)) 
+  allocate(shwkb(0:mx1),shwkt(0:mx1)) ! changed to 1d array from rev.385 
 
   xofft = 0.d0
   xoffb = 0.d0
@@ -383,7 +383,7 @@ subroutine initcr(iopt_ini)
      write(*,'(a8,i5,a8,i5,a8,i5)') 'mx =',mx,'mz =',mz
      write(*,*)
 
-     write(*,'(a10,i7,a9,i6,a9,i5)') 'nstep =',nstep, &
+     write(*,'(a10,i7,a9,i6,a9,i5)') 'nstep =',nstep, & 
                                      'nimag =',nimag,'nhist =',nhist
      write(*,'(a8,f5.2)') '  CFL =',CFL
      write(*,*)
@@ -400,14 +400,14 @@ subroutine initcr(iopt_ini)
      endif
      write(*,'(a,a)') '  write in :  ',trim(filout)
 
-     write(*,'(a,G9.2)') ' HST-DNS, requests (MB/proc): ', &
+     write(*,'(a,G9.2)') ' HST-DNS, requests (MB/proc): ', & 
           & 8d0*(dfloat(buffsize)*dfloat(10 + 4) + dfloat(my*11) + dfloat(mx*mz*7))/1024d0/1024d0
 
   endif
 
 end subroutine initcr
 
-!   ----------  read input skipping comment
+!   ----------  read input skipping comment 
 subroutine rtext(text,dat,idat,ndat,nidat,kdat,kidat,iohre)
   implicit none
   character*128 text
@@ -416,7 +416,7 @@ subroutine rtext(text,dat,idat,ndat,nidat,kdat,kidat,iohre)
   integer iohre
 
   ! 
-  do while (.true.)
+  do while (.true.) 
      read(iohre,'(a)') text
      if((text(1:2).eq.'cc').or.(text(1:2).eq.'CC')) then
         continue ! read next line
@@ -425,7 +425,7 @@ subroutine rtext(text,dat,idat,ndat,nidat,kdat,kidat,iohre)
      endif
      !if(text(1:2).ne.'CC') exit
   enddo
-
+  
   ! 
   if (kdat.ne.0) then
      read(text,*) dat(ndat+1:ndat+kdat)
@@ -468,21 +468,21 @@ subroutine set_xyz_dy
      xgam(k) = dcmplx(0.d0,gam*dfloat(k))
      icx(k) = k
   enddo
-
+  
   do k=nz+1,mz1
      xgam(k) = dcmplx(0.d0 ,-gam*dfloat(mz-k))
      icx(k)  = mz-k
   enddo
-
+  
   do i=0,mx1
      xalp(i) = cii*alp*dfloat(i)
   enddo
   alp2 = -xalp**2 ! positive
   gam2 = -xgam**2 ! positive
-
+  
   dx  = pi2/alp/dfloat(mx)
   dz  = pi2/gam/dfloat(mz)
-  dy  = Ly/dfloat(my)  ! Ly = 2.0
+  dy  = Ly/dfloat(my)  ! Ly = 2.0 
   do j=0,my1
      y(j) = j*dy -0.5d0*Ly
   enddo
@@ -498,7 +498,7 @@ subroutine set_xyz_dy
   if (itemperature.eq.1) then
      cflkk = fkappa/CFL*max(pi*pi/dx/dx, &
           6.25d0/dy/dy, &
-          pi*pi/dz/dz) ! --- for thermal diffusion CFL
+          pi*pi/dz/dz) ! --- for thermal diffusion CFL          
   end if
 
   call update_dy(dy) ! using 'diffy.f90'
@@ -510,7 +510,7 @@ subroutine set_xyz_dy
      Deltag =(dx*dy*dz)**(1.d0/3.d0)
      if (myid.eq.0) write(*,*) ' iuse_LES, update Deltag =', Deltag
 
-     if (ifix_CsDeltag.eq.1) then
+     if (ifix_CsDeltag.eq.1) then 
         Cles=CsDeltag_fix/Deltag
         if (myid.eq.0) write(*,*) ' ifix Cs*Deltag=', CsDeltag_fix, ' Cles=', Cles
      endif
@@ -520,7 +520,7 @@ end subroutine set_xyz_dy
 
 ! ====================================================================
 !
-!                   create initial data field
+!                   create initial data field 
 !                                             jjs  22/8/07
 ! ====================================================================
 subroutine getini_original(vor,phi,u00,w00,tiempo)
@@ -544,7 +544,7 @@ subroutine getini_original(vor,phi,u00,w00,tiempo)
 
   !      ---------------  zero everything, fitf
   vor = 0.d0
-  phi = 0.d0
+  phi = 0.d0 
   u00 = 0.d0
   w00 = 0.d0
 
@@ -552,7 +552,7 @@ subroutine getini_original(vor,phi,u00,w00,tiempo)
   !
   !         define vor <- random junk, spectrum given by sabs  (cosines)
   !                phi <- random junk, spectrum given by sabs  (sines)
-  !            u00,w00 <- random junk, spectrum given by sabs  (cosines)
+  !            u00,w00 <- random junk, spectrum given by sabs  (cosines)  
   ! -----------------------------------------------------------------
 
   allocate ( buff1(0:2*my1+1), buff2(0:2*my1+1) ) ! for cos series ??
@@ -563,10 +563,10 @@ subroutine getini_original(vor,phi,u00,w00,tiempo)
   bet  = pi/Ly
 
   iran=-123456
-
+  
   if (myid.eq.0) then     ! the zero mode is done only once, by master
      write(*,*) ' Initial condition: original spectral profile'
-     ! ------- the 00 velocities are  zero at wall to fix initial velocity jump
+     ! ------- the 00 velocities are  zero at wall to fix initial velocity jump 
      kx2 = 0.d0
      kz2 = 0.d0
      do j=1,my-2
@@ -577,9 +577,9 @@ subroutine getini_original(vor,phi,u00,w00,tiempo)
         buff2(2*j) = sign(amp,randu(iran)-.5d0)/ky2
      enddo
 
-     buff1(4:2*my-4:2) = buff1(4:2*my-4:2) - sum(buff1(0:2*my1+1:4))/size(buff1(0:2*my1+1:4))
+     buff1(4:2*my-4:2) = buff1(4:2*my-4:2) - sum(buff1(0:2*my1+1:4))/size(buff1(0:2*my1+1:4))  
      buff1(2:2*my-4:2) = buff1(2:2*my-4:2) - sum(buff1(2:2*my1+1:4))/size(buff1(2:2*my1+1:4))
-     buff2(4:2*my-4:2) = buff2(4:2*my-4:2) - sum(buff2(0:2*my1+1:4))/size(buff2(0:2*my1+1:4))
+     buff2(4:2*my-4:2) = buff2(4:2*my-4:2) - sum(buff2(0:2*my1+1:4))/size(buff2(0:2*my1+1:4))  
      buff2(2:2*my-4:2) = buff2(2:2*my-4:2) - sum(buff2(2:2*my1+1:4))/size(buff2(2:2*my1+1:4))
 
      call rft(buff1,1,1,1)
@@ -587,7 +587,7 @@ subroutine getini_original(vor,phi,u00,w00,tiempo)
      u00 = buff1(0:my1)
      w00 = buff2(0:my1)
 !     write(*,*) 'my',my
-
+ 
      do iproc=1,numerop-1
         call MPI_SEND(u00,my,MPI_REAL8,iproc,iproc,MPI_COMM_WORLD,ierr)
         call MPI_SEND(w00,my,MPI_REAL8,iproc,iproc,MPI_COMM_WORLD,ierr)
@@ -616,7 +616,7 @@ subroutine getini_original(vor,phi,u00,w00,tiempo)
            ky2  = (bet*j)**2
            amp  = sabs(kx2,ky2,kz2)
            ener = ener+amp**2
-           buff1(2*j+1) = sign(amp,randu(iran)-.5d0) ! *(k13+ky2)
+           buff1(2*j+1) = sign(amp,randu(iran)-.5d0) ! *(k13+ky2)            
            buff2(2*j+1) = sign(amp,randu(iran)-.5d0) ! *(k13+ky2)
         enddo
         call rft(buff1,1,1,1)
@@ -628,7 +628,7 @@ subroutine getini_original(vor,phi,u00,w00,tiempo)
         do j=0,my-2                               ! vor (cosines)
            ky2 = (bet*j)**2
            amp = sabs(kx2,ky2,kz2)
-           buff1(2*j  ) = sign(amp,randu(iran)-.5d0)
+           buff1(2*j  ) = sign(amp,randu(iran)-.5d0) 
            buff2(2*j  ) = sign(amp,randu(iran)-.5d0)
         enddo
         call rft(buff1,1,1,1)
@@ -652,12 +652,12 @@ subroutine getini_original(vor,phi,u00,w00,tiempo)
   w00  = w00*ener
 
   tiempo =0d0
-
+     
 end subroutine getini_original
 
 ! ====================================================================
 !
-!                   create initial data field
+!                   create initial data field 
 !                                             jjs  22/8/07
 !                       modified by sekimoto
 ! ====================================================================
@@ -682,7 +682,7 @@ subroutine getini(vor,phi,u00,w00,tiempo)
 
   !      ---------------  zero everything, fitf
   vor = 0.d0
-  phi = 0.d0
+  phi = 0.d0 
   u00 = 0.d0
   w00 = 0.d0
 
@@ -690,7 +690,7 @@ subroutine getini(vor,phi,u00,w00,tiempo)
   !
   !         define vor <- random junk, spectrum given by sabs  (cosines)
   !                phi <- random junk, spectrum given by sabs  (sines)
-  !            u00,w00 <- random junk, spectrum given by sabs  (cosines)
+  !            u00,w00 <- random junk, spectrum given by sabs  (cosines)  
   !    modified for periodic in y-dir by sekimoto 2011/09/15
   ! -----------------------------------------------------------------
 
@@ -704,10 +704,10 @@ subroutine getini(vor,phi,u00,w00,tiempo)
   bet  = 2.0*pi/Ly
 
   iran=-123456
-
+  
   if (myid.eq.0) then     ! the zero mode is done only once, by master
      write(*,*) ' Initial condition: spectral profile for periodic in y'
-     ! ------- the 00 velocities are  zero at wall to fix initial velocity jump
+     ! ------- the 00 velocities are  zero at wall to fix initial velocity jump 
      kx2 = 0.d0
      kz2 = 0.d0
      do j=1,my-2
@@ -718,18 +718,18 @@ subroutine getini(vor,phi,u00,w00,tiempo)
         ener = ener+amp**2
         !buff1(2*j) = sign(amp,randu(iran)-.5d0)/ky2
         !buff2(2*j) = sign(amp,randu(iran)-.5d0)/ky2
-        buff1(j) = sign(amp,randu(iran)-.5d0)/ky2
-        buff2(j) = sign(amp,randu(iran)-.5d0)/ky2
+        buff1(j) = sign(amp,randu(iran)-.5d0)/ky2 
+        buff2(j) = sign(amp,randu(iran)-.5d0)/ky2 
      enddo
 
-!     buff1(4:2*my-4:2) = buff1(4:2*my-4:2) - sum(buff1(0:2*my1+1:4))/size(buff1(0:2*my1+1:4))
+!     buff1(4:2*my-4:2) = buff1(4:2*my-4:2) - sum(buff1(0:2*my1+1:4))/size(buff1(0:2*my1+1:4))  
 !     buff1(2:2*my-4:2) = buff1(2:2*my-4:2) - sum(buff1(2:2*my1+1:4))/size(buff1(2:2*my1+1:4))
-!     buff2(4:2*my-4:2) = buff2(4:2*my-4:2) - sum(buff2(0:2*my1+1:4))/size(buff2(0:2*my1+1:4))
+!     buff2(4:2*my-4:2) = buff2(4:2*my-4:2) - sum(buff2(0:2*my1+1:4))/size(buff2(0:2*my1+1:4))  
 !     buff2(2:2*my-4:2) = buff2(2:2*my-4:2) - sum(buff2(2:2*my1+1:4))/size(buff2(2:2*my1+1:4))
 
-     buff1(2:my-2) = buff1(2:my-2) - sum(buff1(0:my1+1:2))/size(buff1(0:my1+1:2))
+     buff1(2:my-2) = buff1(2:my-2) - sum(buff1(0:my1+1:2))/size(buff1(0:my1+1:2))  
      buff1(1:my-2) = buff1(1:my-2) - sum(buff1(1:my1+1:2))/size(buff1(1:my1+1:2))
-     buff2(2:my-2) = buff2(2:my-2) - sum(buff2(0:my1+1:2))/size(buff2(0:my1+1:2))
+     buff2(2:my-2) = buff2(2:my-2) - sum(buff2(0:my1+1:2))/size(buff2(0:my1+1:2))  
      buff2(1:my-2) = buff2(1:my-2) - sum(buff2(1:my1+1:2))/size(buff2(1:my1+1:2))
 
      buff1(my/2:my-2)=0.d0 ! should be checked
@@ -740,7 +740,7 @@ subroutine getini(vor,phi,u00,w00,tiempo)
      u00 = buff1(0:my1)
      w00 = buff2(0:my1)
 !     write(*,*) 'my',my
-
+ 
      do iproc=1,numerop-1
         call MPI_SEND(u00,my,MPI_REAL8,iproc,iproc,MPI_COMM_WORLD,ierr)
         call MPI_SEND(w00,my,MPI_REAL8,iproc,iproc,MPI_COMM_WORLD,ierr)
@@ -770,12 +770,12 @@ subroutine getini(vor,phi,u00,w00,tiempo)
            ky2  = (bet*j)**2
            amp  = sabs(kx2,ky2,kz2)
            ener = ener+amp**2
-           !buff1(2*j+1) = sign(amp,randu(iran)-.5d0) ! *(k13+ky2)
+           !buff1(2*j+1) = sign(amp,randu(iran)-.5d0) ! *(k13+ky2)            
            !buff2(2*j+1) = sign(amp,randu(iran)-.5d0) ! *(k13+ky2)
 
-           buff1(j+1) = sign(amp,randu(iran)-.5d0) ! *(k13+ky2)
+           buff1(j+1) = sign(amp,randu(iran)-.5d0) ! *(k13+ky2)            
            buff2(j+1) = sign(amp,randu(iran)-.5d0) ! *(k13+ky2)
-           !buff1(j+1) = amp ! *(k13+ky2)
+           !buff1(j+1) = amp ! *(k13+ky2)            
            !buff2(j+1) = amp ! *(k13+ky2)
 
         enddo
@@ -789,13 +789,13 @@ subroutine getini(vor,phi,u00,w00,tiempo)
         do j=0,my1/2
            ky2 = (bet*j)**2
            amp = sabs(kx2,ky2,kz2)
-           !buff1(2*j  ) = sign(amp,randu(iran)-.5d0)
+           !buff1(2*j  ) = sign(amp,randu(iran)-.5d0) 
            !buff2(2*j  ) = sign(amp,randu(iran)-.5d0)
 
-           buff1(j) = sign(amp,randu(iran)-.5d0)
-           buff2(j) = sign(amp,randu(iran)-.5d0)
-           !buff1(j) = amp
-           !buff2(j) = amp
+           buff1(j) = sign(amp,randu(iran)-.5d0)   
+           buff2(j) = sign(amp,randu(iran)-.5d0) 
+           !buff1(j) = amp   
+           !buff2(j) = amp 
         enddo
         call rft(buff1,1,1,1)
         call rft(buff2,1,1,1)
@@ -818,7 +818,7 @@ subroutine getini(vor,phi,u00,w00,tiempo)
   w00  = w00*ener
 
   tiempo =0d0
-
+     
 end subroutine getini
 
 subroutine getini_tophat(vor,phi,u00,w00,chwk,tiempo,iopt)
@@ -856,7 +856,7 @@ subroutine getini_tophat(vor,phi,u00,w00,chwk,tiempo,iopt)
   integer iopt
   !      ---------------  zero everything, fitf
   vor = 0.d0
-  phi = 0.d0
+  phi = 0.d0 
   u00 = 0.d0
   w00 = 0.d0
   !
@@ -864,7 +864,7 @@ subroutine getini_tophat(vor,phi,u00,w00,chwk,tiempo,iopt)
   !
   !         define vor <- random junk, spectrum given by sabs  (cosines)
   !                phi <- random junk, spectrum given by sabs  (sines)
-  !            u00,w00 <- random junk, spectrum given by sabs  (cosines)
+  !            u00,w00 <- random junk, spectrum given by sabs  (cosines)  
   !    modified for periodic in y-dir by sekimoto 2011/09/15
   !    top-hat (square-pulse) spectrum version (16<=k<=32, Roger and Moin)
   !    (1/2)*E(k) = 1 (16<=k<=32).
@@ -887,12 +887,12 @@ subroutine getini_tophat(vor,phi,u00,w00,chwk,tiempo,iopt)
   iran1 = -123456+myid
   iran2 = -134567+myid
   iran3 = -145678+myid
-
-  if (mod(numerop,9).eq.0) then
-     if (myid.eq.0) write(*,*) 'random factor highly affects on umax for the multiple of 9'
+  
+  if (mod(numerop,9).eq.0) then 
+     if (myid.eq.0) write(*,*) 'random factor highly affects on umax for the multiple of 9'  
      !stop
   endif
-  ! forced to zero to initialization
+  ! forced to zero to initialization 
   u00 = 0.d0
   w00 = 0.d0
   !
@@ -904,7 +904,7 @@ subroutine getini_tophat(vor,phi,u00,w00,chwk,tiempo,iopt)
   buff1=0d0; buff2=0d0
 
   !write(*,*) myid, 'uprim', uprim
-  ! set top hat energy spectram
+  ! set top hat energy spectram 
   !ekin(16:32)=1.d0*uprim;  ! Eii(k)/2 = 1.d0 (16 <= k <= 32) for rogallo
   !                         ! uprim is from hre.dat
   !                         !        uprim = (1/ss)**2 to be s=1.0
@@ -924,31 +924,31 @@ subroutine getini_tophat(vor,phi,u00,w00,chwk,tiempo,iopt)
 
   !i1=0
   !if (kb.eq.0) i1 = 1    ! -- skip the 00 mode
-
+  
   ! for dealiasing (my=mgalx=mgalz)
   if (iuse_LES.eq.0) then
      krmax=2.d0/9.d0
-     kmax=sqrt(2.)/3.d0*max(mgalx*alp,my*bet,mgalz*gam)
+     kmax=sqrt(2.)/3.d0*max(mgalx*alp,my*bet,mgalz*gam) 
   elseif (iuse_LES.eq.1) then
      krmax=1.d0/9.d0
      !krmax=sqrt(2.d0)/2.d0
-     kmax=0.25*max(mgalx*alp,my*bet,mgalz*gam)
+     kmax=0.25*max(mgalx*alp,my*bet,mgalz*gam) 
   end if
   voljac=alp*bet*gam
 
   maxdiv=0.d0
   euu = 0.d0; evv = 0.d0; eww = 0.d0
-  ephi = 0.d0; evor = 0.d0;
+  ephi = 0.d0; evor = 0.d0; 
 
   do k= kb,ke
-
+     
      !write(*,*) myid, 'getting u,v,w from top hat Ek',k
-
+  
      if (k.le.nz) then
         kz = gam*dfloat(k)
      else
         kz = -gam*dfloat(mz-k)
-     end if
+     end if  
      kz2 = gam2(k)
 
      do i=0,mx1
@@ -958,7 +958,7 @@ subroutine getini_tophat(vor,phi,u00,w00,chwk,tiempo,iopt)
 
         k13 = kx2/alp/alp/dfloat(mgalx*mgalx) + kz2/gam/gam/dfloat(mgalz*mgalz)
         !k13 = kx2/alp/alp/dfloat(mx*mx) + kz2/gam/gam/dfloat(mz*mz)
-
+        
         cbuff1=0d0; cbuff2=0d0
         do j=0,my1
 
@@ -968,8 +968,8 @@ subroutine getini_tophat(vor,phi,u00,w00,chwk,tiempo,iopt)
               ky = -bet*dfloat(my-j)
            end if
            ky2  = ky*ky
-
-           kr = sqrt(kx2 + kz2 + ky2)
+           
+           kr = sqrt(kx2 + kz2 + ky2)  
            ! note: kr is kx in matlab test_initial_condition.m (icase==5)
            if (kr.gt.tiny) then
               kd = 1.d0/kr;
@@ -978,7 +978,7 @@ subroutine getini_tophat(vor,phi,u00,w00,chwk,tiempo,iopt)
            end if
            ! mask for dealiasing
            sqk = k13 + ky2/bet/bet/(dfloat(my*my))
-           if (sqk.gt.krmax) then  ! < 2/9
+           if (sqk.gt.krmax) then  ! < 2/9 
               mask = 0.d0
            else
               mask = 1.d0
@@ -986,10 +986,10 @@ subroutine getini_tophat(vor,phi,u00,w00,chwk,tiempo,iopt)
            !
            if (kr.gt.kmax) then
               ekx=0.d0;
-           else
+           else              
               ekx=ekin(kr,uprim,iopt)*voljac
            end if
-           if (ekx.lt.0.d0) then
+           if (ekx.lt.0.d0) then 
               write(*,*) 'error stop', i,ekx,frac,ekin(kr,uprim,iopt)
               stop
            end if
@@ -999,7 +999,7 @@ subroutine getini_tophat(vor,phi,u00,w00,chwk,tiempo,iopt)
            !argc1 = randu(iran1)*pi2*cii;
            !argc2 = randu(iran2)*pi2*cii;
            !angphi= randu(iran3)*pi2;
-
+           
            !
            !call init_random_seed(myid) ! GNU fortran
            !argc1 = rand(0)*pi2*cii;
@@ -1023,33 +1023,33 @@ subroutine getini_tophat(vor,phi,u00,w00,chwk,tiempo,iopt)
               ctmp1=alphax*kr;
               ctmp2=betax*kz;
               rtmp =kd/kxy;
-
+              
               u1 = (ctmp1*ky+ctmp2*kx)*rtmp/alp;
               u2 = (ctmp2*ky-ctmp1*kx)*rtmp/bet;
-              u3 = -betax*kxy*kd/gam;
+              u3 = -betax*kxy*kd/gam; 
 
               ! this betax must have negative sign.
               ! (from P.52 rogallo (1981), P53 is not correct for e_3)
-              ! here u1,u2,u3 are normalized by wavenumbers (rev.681)
+              ! here u1,u2,u3 are normalized by wavenumbers (rev.681) 
               euu = euu + 2.d0*u1*dconjg(u1)*alp*alp
               evv = evv + 2.d0*u2*dconjg(u2)*bet*bet
               eww = eww + 2.d0*u3*dconjg(u3)*gam*gam
              ! write(*,*) u1,u2,u3
            end if
-
+           
            !
-           ! checked with matlab
+           ! checked with matlab 
            !if ((k.eq.5).and.(i.eq.5)) then
            !   write(33,*) dreal(u2),dimag(u2)
            !   v55c(j)= u2
            !end if
-
+           
            ! check divergence zero
            ! note that u1,u2,u3 are normalized by wavenumbers (rev.681)
-           div = cii*(alp*u1*kx + bet*u2*ky + gam*u3*kz)
-
+           div = cii*(alp*u1*kx + bet*u2*ky + gam*u3*kz) 
+           
            maxdiv = max(abs(div),maxdiv)
-
+           
            ! enfsym??
            ! u1, u2, u3 is normalized by wavenumvers.
            ! (rev.681)
@@ -1065,12 +1065,12 @@ subroutine getini_tophat(vor,phi,u00,w00,chwk,tiempo,iopt)
               !      u00c(my-j)=dconjg(u1); w00c(my-j)=dconjg(u3);
               !   end if
               !else
-              !   u00c(j)=0.d0; w00c(j)=0.d0;
+              !   u00c(j)=0.d0; w00c(j)=0.d0;                 
               !end if
            end if
         enddo
 
-        ! OK
+        ! OK 
         !if ((k.eq.5).and.(i.eq.5)) then
         !   !write(33,*) dreal(u2),dimag(u2)
         !   !v55c(j)=u2
@@ -1090,18 +1090,18 @@ subroutine getini_tophat(vor,phi,u00,w00,chwk,tiempo,iopt)
         phi(:,i,k) = cbuff1(0:my1)
         vor(:,i,k) = cbuff2(0:my1)
 
-        if ((i.eq.0).and.(k.eq.0)) then
+        if ((i.eq.0).and.(k.eq.0)) then 
            !call rft(buff1,1,1,1)
            !call rft(buff2,1,1,1)
            !u00 = buff1(0:my1)
            !w00 = buff2(0:my1)
-
+ 
            phi(:,i,k) = 0.d0
-           vor(:,i,k) = 0.d0
+           vor(:,i,k) = 0.d0           
            call cft(u00c,2,2,1,1) ! fou -> phy
            call cft(w00c,2,2,1,1) ! fou -> phy
            u00 = dreal(u00c)
-           w00 = dreal(w00c)
+           w00 = dreal(w00c)  
 
         end if
      enddo
@@ -1126,7 +1126,7 @@ subroutine getini_tophat(vor,phi,u00,w00,chwk,tiempo,iopt)
   call MPI_ALLREDUCE(euu,euu0,1,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
   call MPI_ALLREDUCE(evv,evv0,1,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
   call MPI_ALLREDUCE(eww,eww0,1,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
-
+  
   call MPI_ALLREDUCE(evor,evor0,1,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
   call MPI_ALLREDUCE(ephi,ephi0,1,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
 
@@ -1143,13 +1143,13 @@ subroutine getini_tophat(vor,phi,u00,w00,chwk,tiempo,iopt)
   tiempo =0d0
 
   ! force to set conjugate relations for kx=0 modes
-  ! since saving chikj2jik after hvhg keeps the initial perturbation forever
-  call chjik2ikj(phi,phi,chwk,chwk)
+  ! since saving chikj2jik after hvhg keeps the initial perturbation forever 
+  call chjik2ikj(phi,phi,chwk,chwk)  
   call chjik2ikj(vor,vor,chwk,chwk) ! ome2c
   call set_conj(vor,phi,-1)  ! rev(1158)
   call chikj2jik(phi,phi,chwk,chwk)
   call chikj2jik(vor,vor,chwk,chwk)
-  write(*,*) myid,' set_conj (rev.1158) is applied in getini_tophat'
+  write(*,*) myid,' set_conj (rev.1158) is applied in getini_tophat'     
 
 
 end subroutine getini_tophat
@@ -1175,7 +1175,7 @@ subroutine getini_TG(vor,phi,u00,w00,tiempo)
 
   !      ---------------  zero everything, fitf
   vor = 0.d0
-  phi = 0.d0
+  phi = 0.d0 
   u00 = 0.d0
   w00 = 0.d0
   if(myid.eq.0)  write(*,*) ' Initial condition: Taylor-Green'
@@ -1183,11 +1183,11 @@ subroutine getini_TG(vor,phi,u00,w00,tiempo)
   !
   !         define vor <- random junk, spectrum given by sabs  (cosines)
   !                phi <- random junk, spectrum given by sabs  (sines)
-  !            u00,w00 <- random junk, spectrum given by sabs  (cosines)
+  !            u00,w00 <- random junk, spectrum given by sabs  (cosines)  
   !    modified to periodic in y-dir by sekimoto 2011/09/15
   ! -----------------------------------------------------------------
 
-  allocate ( buff1(0:my1+2), buff2(0:my1+2) )
+  allocate ( buff1(0:my1+2), buff2(0:my1+2) ) 
   buff1=0d0; buff2=0d0
 
   ! NOTE: we need (my+2) buffer for calling rft(my,...)
@@ -1196,11 +1196,11 @@ subroutine getini_TG(vor,phi,u00,w00,tiempo)
   bet  = 2*pi/Ly
 
   ! -------------------  the higher harmonics -----------------------
-  i1 = 1  !  (rev.395) bug fixed for ke==mz1
+  i1 = 1  !  (rev.395) bug fixed for ke==mz1 
   !do k= kb,ke
   !do k= kb,min(ke,3)
   !do k= max(1,kb),1
-     if (((kb.le.1).and.(ke.ge.1)).or.(ke.eq.mz1)) then  !  (rev.395) bug fixed for ke==mz1
+     if (((kb.le.1).and.(ke.ge.1)).or.(ke.eq.mz1)) then  !  (rev.395) bug fixed for ke==mz1 
         k=1
         kz2 = gam2(k)
         !do i=i1,mx1-1
@@ -1217,54 +1217,54 @@ subroutine getini_TG(vor,phi,u00,w00,tiempo)
               ener = ener+amp**2
               !buff1(2*j+1) = sign(amp,randu(iran)-.5d0) ! *(k13+ky2)
               !buff2(2*j+1) = sign(amp,randu(iran)-.5d0) ! *(k13+ky2)
-
+              
               buff1(j) = 0.d0 ! sin
               buff1(j+1) = uprim*0.5d0
               !buff2(j) = amp*0.5d0 ! sin
-              !buff2(j) =
-              !buff1(j+1) = amp ! *(k13+ky2)
+              !buff2(j) = 
+              !buff1(j+1) = amp ! *(k13+ky2)            
               !buff2(j+1) = amp ! *(k13+ky2)
-
+              
            enddo
            call rft(buff1,my+2,1,1)
            !call rft(buff2,1,1,1)
            !write(*,*) 'set Taylor-Green vortex', amp,buff1
            !phi(:,1,0) = buff1(0:my1)*dcmplx(0.5d0,0.d0)
            !phi(:,0,1) = buff1(0:my1)*dcmplx(0.5d0,0.d0)
-
-           if ((kb.le.1).and.(ke.ge.1)) phi(:,1,1) = &
+           
+           if ((kb.le.1).and.(ke.ge.1)) phi(:,1,1) = & 
                 (alp*alp+gam*gam+bet*bet)*buff1(0:my1)*dcmplx(0.5d0,0.d0)/(pi2*pi2)
            if (ke.eq.mz1) phi(:,1,mz1) = &
                 (alp*alp+gam*gam+bet*bet)*buff1(0:my1)*dcmplx(0.5d0,0.d0)/(pi2*pi2)
-
+           
            buff1=0d0
            buff2=0d0
            !        do j=0,my-2                               ! vor (cosines) sin-cos-sin
-           !        do j=0,my1/2
+           !        do j=0,my1/2                  
            do j=2,2
               ky2 = (bet*j)**2
               amp = sabs(kx2,ky2,kz2)
-              !buff1(2*j  ) = sign(amp,randu(iran)-.5d0)
+              !buff1(2*j  ) = sign(amp,randu(iran)-.5d0) 
               !buff2(2*j  ) = sign(amp,randu(iran)-.5d0)
-              buff1(j) = uprim*0.5d0 ! real
+              buff1(j) = uprim*0.5d0 ! real 
               buff1(j+1) = 0.d0 ! imag
-              !buff1(j) = sign(amp,randu(iran)-.5d0)
-              !buff2(j) = sign(amp,randu(iran)-.5d0)
-              !buff1(j) = amp
-              !buff2(j) = amp
+              !buff1(j) = sign(amp,randu(iran)-.5d0)   
+              !buff2(j) = sign(amp,randu(iran)-.5d0) 
+              !buff1(j) = amp   
+              !buff2(j) = amp 
            enddo
            call rft(buff1,my+2,1,1)
            !call rft(buff2,1,1,1)
-           !vor(:,1,0) = -xgam(1)*buff1(0:my1)*dcmplx(0.d0,0.5d0)
-           !vor(:,0,1) = -xgam(1)*buff1(0:my1)*dcmplx(0.d0,0.5d0)
-           if ((kb.le.1).and.(ke.ge.1)) vor(:,1,1) = -gam/pi2*buff1(0:my1)*dcmplx(0.d0,0.5d0)
-           if (ke.eq.mz1) vor(:,1,mz1) = -gam/pi2*buff1(0:my1)*dcmplx(0.d0,0.5d0)
+           !vor(:,1,0) = -xgam(1)*buff1(0:my1)*dcmplx(0.d0,0.5d0) 
+           !vor(:,0,1) = -xgam(1)*buff1(0:my1)*dcmplx(0.d0,0.5d0) 
+           if ((kb.le.1).and.(ke.ge.1)) vor(:,1,1) = -gam/pi2*buff1(0:my1)*dcmplx(0.d0,0.5d0) 
+           if (ke.eq.mz1) vor(:,1,mz1) = -gam/pi2*buff1(0:my1)*dcmplx(0.d0,0.5d0) 
         enddo
         i1 = 0
         !
      endif
   !enddo
-
+  
   call rfti(mgalx)
   deallocate(buff1,buff2)
 
@@ -1279,7 +1279,7 @@ subroutine getini_TG(vor,phi,u00,w00,tiempo)
   !w00  = w00*ener
 
   tiempo =0d0
-
+     
 end subroutine getini_TG
 
 subroutine getini_seki(vor,phi,u00,w00,tiempo)
@@ -1303,7 +1303,7 @@ subroutine getini_seki(vor,phi,u00,w00,tiempo)
 
   !      ---------------  zero everything, fitf
   vor = 0.d0
-  phi = 0.d0
+  phi = 0.d0 
   u00 = 0.d0
   w00 = 0.d0
   if(myid.eq.0)  write(*,*) ' Initial condition: seki ini'
@@ -1311,11 +1311,11 @@ subroutine getini_seki(vor,phi,u00,w00,tiempo)
   !
   !         define vor <- random junk, spectrum given by sabs  (cosines)
   !                phi <- random junk, spectrum given by sabs  (sines)
-  !            u00,w00 <- random junk, spectrum given by sabs  (cosines)
+  !            u00,w00 <- random junk, spectrum given by sabs  (cosines)  
   !    modified to periodic in y-dir by sekimoto 2011/09/15
   ! -----------------------------------------------------------------
 
-  allocate ( buff1(0:my1+2), buff2(0:my1+2) )
+  allocate ( buff1(0:my1+2), buff2(0:my1+2) ) 
   buff1=0d0; buff2=0d0
 
   ! NOTE: we need (my+2) buffer for calling rft(my,...)
@@ -1324,7 +1324,7 @@ subroutine getini_seki(vor,phi,u00,w00,tiempo)
   bet  = 2*pi/Ly
 
   ! -------------------  the higher harmonics -----------------------
-  i1 = 0
+  i1 = 0 
   if (kb.eq.0) i1 = 1    ! -- skip the 00 mode
   !do k= kb,ke
   !do k= kb,min(ke,3)
@@ -1343,14 +1343,14 @@ subroutine getini_seki(vor,phi,u00,w00,tiempo)
            ky2  = (bet*j)**2
            amp  = sabs(kx2,ky2,kz2)
            ener = ener+amp**2
-           !buff1(2*j+1) = sign(amp,randu(iran)-.5d0) ! *(k13+ky2)
+           !buff1(2*j+1) = sign(amp,randu(iran)-.5d0) ! *(k13+ky2)            
            !buff2(2*j+1) = sign(amp,randu(iran)-.5d0) ! *(k13+ky2)
 
            buff1(j) = 0.d0 ! sin
            buff1(j+1) = uprim*0.5d0
            !buff2(j) = amp*0.5d0 ! sin
-           !buff2(j) =
-           !buff1(j+1) = amp ! *(k13+ky2)
+           !buff2(j) = 
+           !buff1(j+1) = amp ! *(k13+ky2)            
            !buff2(j+1) = amp ! *(k13+ky2)
 
         enddo
@@ -1359,13 +1359,13 @@ subroutine getini_seki(vor,phi,u00,w00,tiempo)
         !write(*,*) 'set Taylor-Green vortex', amp,buff1
         !phi(:,1,0) = buff1(0:my1)*dcmplx(0.5d0,0.d0)
         !phi(:,0,1) = buff1(0:my1)*dcmplx(0.5d0,0.d0)
-
-        if (kb.eq.0) then
+        
+        if (kb.eq.0) then 
            phi(:,i,1) = (alp*alp+gam*gam+bet*bet)*buff1(0:my1)*dcmplx(0.5d0,0.d0)/(pi2*pi2)
            !phi(:,i,2) = (alp*alp+gam*gam+bet*bet)*buff1(0:my1)*dcmplx(0.5d0,0.d0)/(pi2*pi2)
            !phi(:,i,3) = (alp*alp+gam*gam+bet*bet)*buff1(0:my1)*dcmplx(0.5d0,0.d0)/(pi2*pi2)
         end if
-        if (ke.eq.mz1) then
+        if (ke.eq.mz1) then 
            !phi(:,i,mz1-2) = (alp*alp+gam*gam+bet*bet)*buff1(0:my1)*dcmplx(0.5d0,0.d0)/(pi2*pi2)
            !phi(:,i,mz1-1) = (alp*alp+gam*gam+bet*bet)*buff1(0:my1)*dcmplx(0.5d0,0.d0)/(pi2*pi2)
            phi(:,i,mz1) = (alp*alp+gam*gam+bet*bet)*buff1(0:my1)*dcmplx(0.5d0,0.d0)/(pi2*pi2)
@@ -1373,25 +1373,25 @@ subroutine getini_seki(vor,phi,u00,w00,tiempo)
         buff1=0d0
         buff2=0d0
 !        do j=0,my-2                               ! vor (cosines) sin-cos-sin
-!        do j=0,my1/2
+!        do j=0,my1/2                  
         do j=2,2
            ky2 = (bet*j)**2
            amp = sabs(kx2,ky2,kz2)
-           !buff1(2*j  ) = sign(amp,randu(iran)-.5d0)
+           !buff1(2*j  ) = sign(amp,randu(iran)-.5d0) 
            !buff2(2*j  ) = sign(amp,randu(iran)-.5d0)
-           buff1(j) = uprim*0.5d0 ! real
+           buff1(j) = uprim*0.5d0 ! real 
            buff1(j+1) = 0.d0 ! imag
-           !buff1(j) = sign(amp,randu(iran)-.5d0)
-           !buff2(j) = sign(amp,randu(iran)-.5d0)
-           !buff1(j) = amp
-           !buff2(j) = amp
+           !buff1(j) = sign(amp,randu(iran)-.5d0)   
+           !buff2(j) = sign(amp,randu(iran)-.5d0) 
+           !buff1(j) = amp   
+           !buff2(j) = amp 
         enddo
         call rft(buff1,my1+2,1,1)
         !call rft(buff2,1,1,1)
-        !vor(:,1,0) = -xgam(1)*buff1(0:my1)*dcmplx(0.d0,0.5d0)
-        !vor(:,0,1) = -xgam(1)*buff1(0:my1)*dcmplx(0.d0,0.5d0)
-        if (kb.eq.0) vor(:,i,1) = -gam/pi2*buff1(0:my1)*dcmplx(0.d0,0.5d0)
-        if (ke.eq.mz1) vor(:,i,mz1) = -gam/pi2*buff1(0:my1)*dcmplx(0.d0,0.5d0)
+        !vor(:,1,0) = -xgam(1)*buff1(0:my1)*dcmplx(0.d0,0.5d0) 
+        !vor(:,0,1) = -xgam(1)*buff1(0:my1)*dcmplx(0.d0,0.5d0) 
+        if (kb.eq.0) vor(:,i,1) = -gam/pi2*buff1(0:my1)*dcmplx(0.d0,0.5d0) 
+        if (ke.eq.mz1) vor(:,i,mz1) = -gam/pi2*buff1(0:my1)*dcmplx(0.d0,0.5d0) 
      enddo
      i1 = 0
   !enddo
@@ -1410,7 +1410,7 @@ subroutine getini_seki(vor,phi,u00,w00,tiempo)
   w00  = w00*ener
 
   tiempo =0d0
-
+     
 end subroutine getini_seki
 
 
@@ -1438,7 +1438,7 @@ subroutine getini_streak(vor,phi,u00,w00,tiempo)
 
   !      ---------------  zero everything, fitf
   vor = 0.d0
-  phi = 0.d0
+  phi = 0.d0 
   u00 = 0.d0
   w00 = 0.d0
   if(myid.eq.0)  write(*,*) ' Initial condition: streak profile: U = s*y + uprim*cos(gam*z)'
@@ -1448,7 +1448,7 @@ subroutine getini_streak(vor,phi,u00,w00,tiempo)
   endif
 
   tiempo =0d0
-
+     
 end subroutine getini_streak
 
 subroutine getini_streak_t(tb,tb00,tiempo)
@@ -1495,27 +1495,27 @@ subroutine getini_streak_t(tb,tb00,tiempo)
      tb(:,2,3) = tb(:,2,3) + dcmplx(1.d0,1.d0)*uprim*0.001d0*gam
   endif
   tiempo =0d0
-
+     
 end subroutine getini_streak_t
 
 subroutine getini_rdt2(vor,phi,u00,w00,tiempo)
   !
-  ! assuming v = v0 (exp[i*( k0x x + k0z z + k_y y)] + exp[-i*( k0x x + k0z z + k_y y)])
+  ! assuming v = v0 (exp[i*( k0x x + k0z z + k_y y)] + exp[-i*( k0x x + k0z z + k_y y)])  
   ! (k_y0=0, please check for k_y0 =1, 2, ...)
   !  [du is constant in xyz-dir]
   !   (for the case of ky=0)
   !     => vor = 0
-  !       phi = (\alpha**2 + \gamma**2) v0
+  !       phi = (\alpha**2 + \gamma**2) v0  
   !
   !   (for the case of ky.ne.0)
   !     => note: u0 = w0 = 0 does not satisfy the continuity
   !        set vor = 0, then
-  !        -(alp2+gam2)*u0 = + kx*ky*v0
+  !        -(alp2+gam2)*u0 = + kx*ky*v0 
   !        -(alp2+gam2)*w0 = + ky*kz*v0
-  !
+  !        
   !     for the case of ky~=0 && kz==0, set additionally
   !         vor= - kx v0 exp[i*( k0x x + k_y y)]
-  ! Note: the conjugate wave in x-dir will be also imposed,
+  ! Note: the conjugate wave in x-dir will be also imposed, 
   !       so that the maximum velocity will be 2*uprim
   !
   ! normalize the initial condition to be sqrt(E_0) = uprim
@@ -1548,23 +1548,23 @@ subroutine getini_rdt2(vor,phi,u00,w00,tiempo)
   u00 = 0.d0; w00 = 0.d0
   if(myid.eq.0)  write(*,*) &
        ' Initial condition: one-wave for RDT check '
-  if(myid.eq.0) then
+  if(myid.eq.0) then 
      write(*,*) 'input initial wavenumbers (index) '
-     read(*,*) k0(1),k0(2),k0(3)
+     read(*,*) k0(1),k0(2),k0(3) 
      if ((k0(1).gt.mx1).or.(k0(2).gt.my/2).or.((k0(3).gt.mz1/2))) then
         write(*,*) 'wrong wave index !!!'
         stop
      end if
-  endif
+  endif  
 
   call MPI_BCAST(k0,3,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
 
-  allocate ( buff1(0:2*my-1), buff2(0:2*my-1), buff3(0:2*my-1) )
+  allocate ( buff1(0:2*my-1), buff2(0:2*my-1), buff3(0:2*my-1) ) 
   buff1=0d0; buff2=0d0; buff3=0d0
   ! NOTE: we need (my+2) buffer for calling rft(my,...), but not for cft
 
   bet  = 2*pi/Ly
-
+  
   kx = alp*k0(1)
   ky = bet*k0(2)
   kz = gam*k0(3)
@@ -1573,32 +1573,32 @@ subroutine getini_rdt2(vor,phi,u00,w00,tiempo)
   ener0 = ((kx*ky)**2 + (kx*kx + kz*kz)**2 + (ky*kz)**2)/(kx*kx + kz*kz)**2
   sca0  = 1.d0/sqrt(ener0)
   !
-  ! set etime to be |ky*dy|=pi
+  ! set etime to be |ky*dy|=pi  
   etime= (dfloat(my/2)*bet + ky)/kx;
   !write(*,*) myid,'k',kx,ky,kz,'xalp=',xalp(k0(1)),xgam(k0(3))
-
+  
   if (k0(2).gt.0) then
      if (my/2.lt.k0(2)) then
         if (myid.eq.0) write(*,*) 'wrong initial wavenumber, my/2 < ', k0(2)
         stop
      end if
-     !if ((k0(1).eq.0).or.(k0(3).eq.0)) then
-     if (k0(1).eq.0) then
+     !if ((k0(1).eq.0).or.(k0(3).eq.0)) then 
+     if (k0(1).eq.0) then 
         if (myid.eq.0) write(*,*) 'wrong initial wavenumber'
         stop
      end if
      call cfti(my) ! set fast Fourier transformation in y-dir
      ! set fourier coefficient in y
 
-     buff1(k0(2)*2)  = uprim    !
-     buff2(k0(2)*2+1)= uprim*ky !
-     buff3(k0(2)*2)  = -uprim*ky*ky
+     buff1(k0(2)*2)  = uprim    ! 
+     buff2(k0(2)*2+1)= uprim*ky ! 
+     buff3(k0(2)*2)  = -uprim*ky*ky 
 
      call cft(buff1(0),2,2*my,1,1) ! inverse FFT (dft_c2r) ! v0(y)
      call cft(buff2(0),2,2*my,1,1) ! inverse FFT (dft_c2r) ! dv0dy(y)
      call cft(buff3(0),2,2*my,1,1) ! inverse FFT (dft_c2r) ! ddv0dydy(y)
-
-     call cfti(mgalz) ! reset rfti
+     
+     call cfti(mgalz) ! reset rfti 
 
      ! zero-zero mode, should be zero ... for v00=0.d0
 
@@ -1611,20 +1611,20 @@ subroutine getini_rdt2(vor,phi,u00,w00,tiempo)
      call cfti(my) ! set fast Fourier transformation in y-dir
      ! set fourier coefficient in y
 
-     buff1(2*my + k0(2)*2)  = uprim    !
-     buff2(2*my + k0(2)*2 +1)= uprim*(-ky) !
-     buff3(2*my + k0(2)*2)  = -uprim*ky*ky
+     buff1(2*my + k0(2)*2)  = uprim    ! 
+     buff2(2*my + k0(2)*2 +1)= uprim*(-ky) ! 
+     buff3(2*my + k0(2)*2)  = -uprim*ky*ky 
 
      call cft(buff1(0),2,2*my,1,1) ! inverse FFT (dft_c2r) ! v0(y)
      call cft(buff2(0),2,2*my,1,1) ! inverse FFT (dft_c2r) ! dv0dy(y)
      call cft(buff3(0),2,2*my,1,1) ! inverse FFT (dft_c2r) ! ddv0dydy(y)
-
-     call cfti(mgalz) ! reset rfti
+     
+     call cfti(mgalz) ! reset rfti 
 
      ! zero-zero mode, should be zero ... for v00=0.d0
 
   else
-     buff1(0:2*my-1:2) = uprim
+     buff1(0:2*my-1:2) = uprim 
      buff2 = 0.d0
      buff3 = 0.d0
   end if
@@ -1639,14 +1639,14 @@ subroutine getini_rdt2(vor,phi,u00,w00,tiempo)
           + sca0*buff3(0:2*my-1)
      write(*,*) myid,'set phi',k0(1),k0(3),phi(:,k0(1),k0(3))
      !
-     ! for checking constant w0
+     ! for checking constant w0 
      !if (k0(3).eq.0) then
-     !   vor(0:2*my-1,k0(1),k0(3)) = -kx*buff1(0:2*my-1)
+     !   vor(0:2*my-1,k0(1),k0(3)) = -kx*buff1(0:2*my-1) 
      !   ! set only imaginary part
      !   !write(*,*) myid,'set the imaginary part of vor',k0(1),k0(3),vor(:,k0(1),k0(3))
      !end if
   endif
-
+  
   !k3 = mz-k0(3)
   !if ((kb.le.k3).and.(ke.ge.k3)) then
   !!   write(*,*) myid,'getini_rdt: phi',kb,ke
@@ -1662,25 +1662,25 @@ subroutine getini_rdt2(vor,phi,u00,w00,tiempo)
 
   deallocate(buff1,buff2,buff3)
   tiempo =0d0
-
+     
 end subroutine getini_rdt2
 
 
 subroutine getini_rdt(vor,phi,u00,w00,tiempo)
   !
-  ! assuming v = v0 exp[i*( k0x x + k0z z + k_y y)] + exp[-i*( k0x x + k0z z + k_y y)]
+  ! assuming v = v0 exp[i*( k0x x + k0z z + k_y y)] + exp[-i*( k0x x + k0z z + k_y y)]  
   ! (k_y0=0, please check for k_y0 =1, 2, ...)
   !  [du is constant in xyz-dir]
   !   (for the case of ky=0)
   !     => vor = 0
-  !       phi = (\alpha**2 + \gamma**2) v0
+  !       phi = (\alpha**2 + \gamma**2) v0  
   !
   !   (for the case of ky.ne.0)
   !     => note: u0 = w0 = 0 does not satisfy the continuity
   !        set vor = 0, then
-  !        -(alp2+gam2)*u0 = + kx*ky*v0
+  !        -(alp2+gam2)*u0 = + kx*ky*v0 
   !        -(alp2+gam2)*w0 = + ky*kz*v0
-  ! Note: the conjugate wave in x-dir will be also imposed,
+  ! Note: the conjugate wave in x-dir will be also imposed, 
   !       so that the maximum velocity will be 2*uprim
   !
   ! normalize the initial condition to be sqrt(E_0) = uprim
@@ -1710,23 +1710,23 @@ subroutine getini_rdt(vor,phi,u00,w00,tiempo)
   u00 = 0.d0; w00 = 0.d0
   if(myid.eq.0)  write(*,*) &
        ' Initial condition: one-wave for RDT check '
-  if(myid.eq.0) then
+  if(myid.eq.0) then 
      write(*,*) 'input initial wavenumbers (index) '
-     read(*,*) k0(1),k0(2),k0(3)
+     read(*,*) k0(1),k0(2),k0(3) 
      if ((k0(1).gt.mx1).or.(k0(2).gt.my/2).or.((k0(3).gt.mz1/2))) then
         write(*,*) 'wrong wave index !!!'
         stop
      end if
-  endif
+  endif  
 
   call MPI_BCAST(k0,3,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
 
-  allocate ( buff1(0:my1+2), buff2(0:my1+2), buff3(0:my1+2) )
+  allocate ( buff1(0:my1+2), buff2(0:my1+2), buff3(0:my1+2) ) 
   buff1=0d0; buff2=0d0; buff3=0d0
   ! NOTE: we need (my+2) buffer for calling rft(my,...)
 
   bet  = 2*pi/Ly
-
+  
   kx = alp*k0(1)
   ky = bet*k0(2)
   kz = gam*k0(3)
@@ -1736,41 +1736,41 @@ subroutine getini_rdt(vor,phi,u00,w00,tiempo)
   sca0  = 1.d0/sqrt(ener0)
   !
   !write(*,*) myid,'k',kx,ky,kz,'xalp=',xalp(k0(1)),xgam(k0(3))
-
+  
   if (k0(2).ne.0) then
      if (my.le.k0(2)*2) then
         if (myid.eq.0) write(*,*) 'wrong initial wavenumber, my/2 < ', k0(2)
         stop
      end if
-     !if ((k0(1).eq.0).or.(k0(3).eq.0)) then
-     if (k0(1).eq.0) then
+     !if ((k0(1).eq.0).or.(k0(3).eq.0)) then 
+     if (k0(1).eq.0) then 
         if (myid.eq.0) write(*,*) 'wrong initial wavenumber'
         stop
      end if
      call rfti(my) ! set fast Fourier transformation in y-dir (my+2 ??)
      ! set fourier coefficient in y
 
-     buff1(k0(2)*2)  = uprim    ! rft impose a conjugate mode.
+     buff1(k0(2)*2)  = uprim    ! rft impose a conjugate mode. 
      buff2(k0(2)*2+1)= uprim*ky ! complex ! bug fixed (rev.427)
-     buff3(k0(2)*2)  = -uprim*ky*ky
+     buff3(k0(2)*2)  = -uprim*ky*ky 
 
      call rft(buff1(0),my+2,1,1) ! inverse FFT (dft_c2r) ! v0(y)
      call rft(buff2(0),my+2,1,1) ! inverse FFT (dft_c2r) ! dv0dy(y)
      call rft(buff3(0),my+2,1,1) ! inverse FFT (dft_c2r) ! ddv0dydy(y)
-
+     
      !call rft(buff1,my+2,1,-1) ! forward FFT (dft_c2r) ! v0(y), OK
      !if (myid.eq.0) then
-     !   write(*,*) myid,'buff1',buff1 ! rft impose a conjugate mode.
+     !   write(*,*) myid,'buff1',buff1 ! rft impose a conjugate mode.      
      !   write(*,*) myid,'buff2',buff2
      !   write(*,*) myid,'buff3',buff3
      !end if
-
-     call rfti(mgalx) ! reset rfti
+     
+     call rfti(mgalx) ! reset rfti 
 
      ! zero-zero mode, should be zero ... for v00=0.d0
 
   else
-     buff1 = uprim
+     buff1 = uprim 
      buff2 = 0.d0
      buff3 = 0.d0
   end if
@@ -1785,12 +1785,12 @@ subroutine getini_rdt(vor,phi,u00,w00,tiempo)
           + sca0*buff3(0:my1)
      write(*,*) myid,'set phi',k0(1),k0(3),phi(:,k0(1),k0(3))
      !%vor(:,k0(1),k0(3)) = vor(:,k0(1),k0(3)) + &
-     !     buff2(0:my1)*dcmplx(-1.d0,0.d0)*kx/kz
-     ! BUG u0=0 does not satisty the continuity
+     !     buff2(0:my1)*dcmplx(-1.d0,0.d0)*kx/kz  
+     ! BUG u0=0 does not satisty the continuity 
      !vor(1:2*my-1:2,k0(1),k0(3)) = vor(1:2*my-1:2,k0(1),k0(3)) &
      !    - kx*buff1(0:my1)
   endif
-
+  
   !k3 = mz-k0(3)
   !if ((kb.le.k3).and.(ke.ge.k3)) then
   !   write(*,*) myid,'getini_rdt: phi',kb,ke
@@ -1802,7 +1802,7 @@ subroutine getini_rdt(vor,phi,u00,w00,tiempo)
 
   deallocate(buff1,buff2,buff3)
   tiempo =0d0
-
+     
 end subroutine getini_rdt
 
 function ekin(ke,fac,iopt)
@@ -1812,17 +1812,17 @@ function ekin(ke,fac,iopt)
   ekin = 0.d0
 
   if (iopt.eq.1) then
-     if ((ke.ge.16.d0).and.(ke.le.32.d0)) then
-        ekin=fac
+     if ((ke.ge.16.d0).and.(ke.le.32.d0)) then 
+        ekin=fac        
      end if
   elseif (iopt.eq.2) then
-     if ((ke.ge.4.d0).and.(ke.le.8.d0)) then
-        ekin=fac
+     if ((ke.ge.4.d0).and.(ke.le.8.d0)) then 
+        ekin=fac        
      end if
   elseif (iopt.eq.3) then
-     !if ((ke.ge.3.d0).and.(ke.le.4.d0)) then
-     if ((ke.ge.2.d0).and.(ke.le.3.d0)) then
-        ekin=fac
+     !if ((ke.ge.3.d0).and.(ke.le.4.d0)) then 
+     if ((ke.ge.2.d0).and.(ke.le.3.d0)) then 
+        ekin=fac        
      end if
    end if
   !write(*,*) 'ekin=',ekin, 'at ', ke, kmax
@@ -1830,15 +1830,15 @@ function ekin(ke,fac,iopt)
 end function ekin
 
 
-function sabs(kx2,ky2,kz2)
+function sabs(kx2,ky2,kz2) 
 !**********************************************************
 !   isotropic spectrum with k^2 E peaking at pmesp
 !**********************************************************
   use ctes
   implicit none
   real*8 kx2,ky2,kz2,kk,sabs,c0,cx,qx,q0
-  parameter (q0=4., qx=5.d0/3.d0, c0=0.25*q0, cx=c0+0.25*qx)
-  !parameter (q0=4., qx=10.d0, c0=0.25*q0, cx=c0+0.25*qx)
+  parameter (q0=4., qx=5.d0/3.d0, c0=0.25*q0, cx=c0+0.25*qx) 
+  !parameter (q0=4., qx=10.d0, c0=0.25*q0, cx=c0+0.25*qx) 
 
   !  -----  parameters for initial conditions
   ! isotropic energy spectrum E=k^q0     at k<<1
@@ -1848,7 +1848,7 @@ function sabs(kx2,ky2,kz2)
   kk   = (kx2+ky2+kz2)/(pmesp*1.36)**2
   sabs = kk**c0/(1+kk**cx)
 
-end function sabs
+end function sabs 
 
 
 
@@ -1907,25 +1907,25 @@ SUBROUTINE init_random_seed(id)
 
   INTEGER :: i, n, clock, id
   INTEGER, DIMENSION(:), ALLOCATABLE :: seed
-
+  
   CALL RANDOM_SEED(size = n)
   ALLOCATE(seed(n))
   call random_seed(get=seed)   ! bug fixed (rev.1229)
   CALL SYSTEM_CLOCK(COUNT=clock)
-
+  
   seed = clock + (37+id*5) * (/ (i - 1, i = 1, n) /)
 
   CALL RANDOM_SEED(PUT = seed)
-
+  
   DEALLOCATE(seed)
 END SUBROUTINE init_random_seed
 
 ! ------------------------------------------------------------------------------- !
-!  set additional options
+!  set additional options 
 ! DO NOT forget to BCAST
 ! ------------------------------------------------------------------------------- !
 subroutine set_options()
-
+  
   use ctes
   use running
   use LES
@@ -1937,8 +1937,6 @@ subroutine set_options()
   character*128 command
   integer nextline
   integer istat(MPI_STATUS_SIZE),ierr
-  integer :: inonNewtonian
-  real(8) :: mu_0, mu_inf, lambda, nnf
 
   call hre_reader(ihre_error) ! read some run options from hre3.dat
 
@@ -1946,28 +1944,25 @@ subroutine set_options()
   ! DO NOT forget to BCAST
   !
   nopt=9; nparams=13; ! here set dafault numbers of option and parameters (rev.1433)
-  ! this is used throughout file dumping, readwrite and arnoldi
+  ! this is used throughout file dumping, readwrite and arnoldi 
   ! -----------------------------------------------------------------------------
-  ! set default options
+  ! set default options 
   explicit=1; ifix_dt=0; iadd_force=0; iadd_mode=5; iadd_sym=0; iadd_damping=0;
-  Deltat=0.d0; force_roll=0.d0; xforce=0.d0; zforce=0.d0; vbulk=0.d0;
+  Deltat=0.d0; force_roll=0.d0; xforce=0.d0; zforce=0.d0; vbulk=0.d0; 
   damp_aa=0.d0; damp_up=0.d0;
   idump_mode=0; iget_cfy=0;
   iydealiasing=0;
-  iuse_newton=0;
+  iuse_newton=0; 
   iread_footer=1; ! rev.1245
-  inorm=0 ! the standard norm (1, for LES (mean velocity is scaled-average ...,
-          ! (2, devided by the maximum before the summation, then the best convergence for UPO2 (LB)
+  inorm=0 ! the standard norm (1, for LES (mean velocity is scaled-average ..., 
+          ! (2, devided by the maximum before the summation, then the best convergence for UPO2 (LB) 
           ! (3,testing DotK, double**K -order norm, this should be equivalent to inorm=0)
   ! -----------------------------------------------------------------------------
   iread_hdf5=0; iwrite_hdf5=0;
   !
   ! set default options for LES
-  iuse_LES=0; idynamic=0; iadd_visc=0; Cles=0.25; ! 0.173 (Lilly)
+  iuse_LES=0; idynamic=0; iadd_visc=0; Cles=0.25; ! 0.173 (Lilly) 
   ifix_CsDeltag=0; CsDeltag_fix=0.d0; ! rev.1348
-  !
-  inonNewtonian=0
-  mu_0= 0.d0; mu_inf= 0.d0; lambda= 0.d0;nnf = 0.d0
   !
   itemperature=0 ! see crosst
   init_temp=0
@@ -2015,29 +2010,13 @@ subroutine set_options()
   call  MPI_BCAST(bym,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
   call  MPI_BCAST(gbeta,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
 
-  if (myid.eq.0) then
-   command='inonNewtonian'
-   call go_command(command,nextline) ! DO NOT forget to BCAST
-   if (nextline.ge.1) then
-      read(hrefile(nextline),*) inonNewtonian
-      if (inonNewtonian.eq.1) then
-         read(hrefile(nextline+1),*) mu_0, mu_inf, lambda,nnf
-         write(*,*) 'inonNewtonian: mu_0, mu_inf, lambda,nnf',mu_0, mu_inf, lambda,nnf
-      end if
-   end if
-end if
-call  MPI_BCAST(inonNewtonian,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-call  MPI_BCAST(mu_0,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-call  MPI_BCAST(mu_inf,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-call  MPI_BCAST(lambda,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-call  MPI_BCAST(nnf,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
   ! --- this option generate a streak-like initial temperature field
   command='init_temp'
-  call switching(command,init_temp)
+  call switching(command,init_temp) 
 
   ! idump_mode
   ! 0 is original dumping mode, which uses iimag...
-  !
+  ! 
   if (myid.eq.0) then
      command='idump_mode'
      call go_command(command,nextline) ! DO NOT forget to BCAST
@@ -2056,7 +2035,7 @@ call  MPI_BCAST(nnf,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
 
   ! iget_cfy
   ! =1 : save cf as a function of y... only for LES
-  !
+  ! 
   if (myid.eq.0) then
      command='iget_cfy'
      call go_command(command,nextline) ! DO NOT forget to BCAST
@@ -2072,29 +2051,29 @@ call  MPI_BCAST(nnf,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
   ! iadd_sym  !
   !           ! 5: shift-refrection
               ! 6: mirror-symmetry
-              ! 7: rotation-refrection for varicose (UPO4)
-              ! 8: rotation-refrection for sinuous
+              ! 7: rotation-refrection for varicose (UPO4) 
+              ! 8: rotation-refrection for sinuous 
   if (myid.eq.0) then
      command='iadd_sym'
      call go_command(command,nextline) ! DO NOT forget to BCAST
      if (nextline.ge.1) then
         read(hrefile(nextline),*) iadd_sym
         if ((iadd_sym.ge.5).and.(iadd_sym.le.8)) then
-           read(hrefile(nextline+1),*) sym_shiftx,sym_shiftz
+           read(hrefile(nextline+1),*) sym_shiftx,sym_shiftz 
            ! the fraction of Lx and Lz
            ! shifting parameter for initial condition to have the specified symmetry
            write(*,*) 'iadd_sym, initial phase shift, iadd_sym=',iadd_sym
            write(*,*) 'sym_shift(x,z)',sym_shiftx, sym_shiftz
         elseif (iadd_sym.eq.12) then
-           read(hrefile(nextline+1),*) sym_shiftx,sym_shiftz
+           read(hrefile(nextline+1),*) sym_shiftx,sym_shiftz 
            ! the fraction of Lx and Lz
            ! shifting parameter for initial condition to have the specified symmetry
            write(*,*) 'iadd_sym, initial phase shift, iadd_sym=',iadd_sym
-           write(*,*) 'sym_shift(x,z)',sym_shiftx, sym_shiftz
+           write(*,*) 'sym_shift(x,z)',sym_shiftx, sym_shiftz  
         elseif (iadd_sym.eq.-1) then
            ! for gmres_shear.f90
            if(myid.eq.0) write(*,*) 'add randum disturbance to initial vector', &
-                ' to break symmetry of the initial guess'
+                ' to break symmetry of the initial guess' 
         elseif (iadd_sym.ne.0) then
            write(*,*) 'wrong parameter iadd_sym =', iadd_sym
            call MPI_ABORT(MPI_COMM_WORLD,ierr)
@@ -2104,7 +2083,7 @@ call  MPI_BCAST(nnf,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
   call  MPI_BCAST(iadd_sym,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
   call  MPI_BCAST(sym_shiftx,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
   call  MPI_BCAST(sym_shiftz,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-  ! write(*,*) myid,'iadd_sym, sym_shiftx',iadd_sym, sym_shiftx, sym_shiftz
+  ! write(*,*) myid,'iadd_sym, sym_shiftx',iadd_sym, sym_shiftx, sym_shiftz 
   !
   ! iadd_force
   if (myid.eq.0) then
@@ -2165,7 +2144,7 @@ call  MPI_BCAST(nnf,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
      !Deltag =(dx*dy*dz)**(1/3) ! BUG found by sekimoto 2014/Oct/21
      Deltag =(dx*dy*dz)**(1.d0/3.d0) ! do not forget to set again after changing dx,dy,dz...
      if (myid.eq.0) then
-        if (idynamic.eq.0) then
+        if (idynamic.eq.0) then        
            write(*,*) ' ----- '
            write(*,*) ' LES Smagorinsky: [Deltag=(dx*dy*dz)**(1/3),Cles] ='
            write(*,*) ' ',Deltag,Cles
@@ -2173,14 +2152,14 @@ call  MPI_BCAST(nnf,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
         elseif (idynamic.eq.1) then
            write(*,*)
            write(*,*) ' LES dynamic Smagorinsky model'
-           write(*,*) ' NOT implemented ...stop'
+           write(*,*) ' NOT implemented ...stop' 
            stop
         end if
      endif
      !if (idynamic.eq.0) write(*,*) myid,'Cles,Deltag,idynamic=',Cles,Deltag,idynamic
 
   end if
-
+ 
   ! checking errors...
   if ((iuse_LES.eq.1).and.(explicit.eq.0)) then
      write(*,*) 'LES is only for explicit, stop'
@@ -2193,7 +2172,7 @@ call  MPI_BCAST(nnf,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
   if (ifix_CsDeltag.eq.1) then
      if (myid.eq.0) write(*,*) 'ifix_CsDeltag '
   elseif (ifix_CsDeltag.ne.0) then
-     if (myid.eq.0) write(*,*) 'ifix_CsDeltag: error '
+     if (myid.eq.0) write(*,*) 'ifix_CsDeltag: error ' 
      stop
   end if
   if (trim(command).eq.'ifix_CsDelta') then
@@ -2216,7 +2195,7 @@ call  MPI_BCAST(nnf,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
   elseif (iydealiasing.eq.3) then
      if (myid.eq.0) write(*,*) 'iydealiasing=3 : compact filter'
   elseif (iydealiasing.ne.0) then
-     if (myid.eq.0) write(*,*) 'error reading option: iydealiasing'
+     if (myid.eq.0) write(*,*) 'error reading option: iydealiasing' 
      stop
   end if
 
@@ -2239,7 +2218,7 @@ call  MPI_BCAST(nnf,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
   if (iskip_screenout.eq.1) then
      if (myid.eq.0) write(*,*) 'skip screen output'
   elseif (iskip_screenout.ne.0) then
-     if (myid.eq.0) write(*,*) 'skip screen output error: ',iskip_screenout
+     if (myid.eq.0) write(*,*) 'skip screen output error: ',iskip_screenout 
      stop
   end if
 
@@ -2253,7 +2232,7 @@ call  MPI_BCAST(nnf,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
   call  MPI_BCAST(inorm,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
 
   command='iread_hdf5'
-  call switching(command,iread_hdf5)
+  call switching(command,iread_hdf5)  
   command='iwrite_hdf5'
   call switching(command,iwrite_hdf5)
   if ((iread_hdf5.le.-1).or.(iread_hdf5.ge.2)) then
@@ -2296,8 +2275,8 @@ subroutine hre_reader(ierror)
   implicit none
 
   ! read optional numerical parameters from hre3.dat
-  ! the parameter is saved in
-
+  ! the parameter is saved in 
+  
   character*1024 file
   integer iohre,maxHreLine,il,nline,ierror
 
@@ -2315,8 +2294,8 @@ subroutine hre_reader(ierror)
   nline = 1
   read(iohre,100) hrefile(nline)
   !write(*,100) trim(hrefile(1))
-  do while ((trim(hrefile(nline)).ne.'HREEND') &
-       & .and.(trim(hrefile(nline)).ne.'ENDHRE') &
+  do while ((trim(hrefile(nline)).ne.'HREEND') & 
+       & .and.(trim(hrefile(nline)).ne.'ENDHRE') & 
        & .and.(trim(hrefile(nline)).ne.'END'))
      nline = nline + 1
      read(iohre,100) hrefile(nline)
@@ -2329,7 +2308,7 @@ subroutine hre_reader(ierror)
   !   write(*,*) trim(hrefile(il))
   !end do
   write(*,*) '----- successful read of hre3.dat -----'
-  write(*,*)
+  write(*,*) 
   close(iohre)
 
   return
@@ -2340,13 +2319,13 @@ subroutine hre_reader(ierror)
 end subroutine hre_reader
 
 subroutine go_command(command, nextline)
-
+  
   use running,only:hrefile,hrelines
   implicit none
 
   integer i1, i2, line, nextline
   character*128 command, text
-
+  
   i1=1
   i2=len_trim(command)
 
