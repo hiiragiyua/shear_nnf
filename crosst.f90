@@ -1,7 +1,7 @@
 #define TIMING
 !#undef TIMING
-subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, & 
-     &           rhvc1,rhvc2,rhgc1,rhgc2, & 
+subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
+     &           rhvc1,rhvc2,rhgc1,rhgc2, &
      &           tb,tb00,tbwk,ht,rhtc2,chwk)
 
   use ctes
@@ -16,7 +16,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
   implicit none
   include "mpif.h"
 
-  !------------- Parameters for SMR R-K (A.A.Wray etc.)------------------!      
+  !------------- Parameters for SMR R-K (A.A.Wray etc.)------------------!
   real(8)    gama(3), alpha(3), beta(3), ibeta(3), zeta(3), ca(3)
   parameter (gama =(/ 8d0/15d0,   5d0/12d0,   3d0/4d0 /))
   parameter (alpha=(/ 29d0/96d0, -3d0/40d0,   1d0/6d0 /))
@@ -32,7 +32,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
 
   complex(8) shp,shm,const
   real(8),dimension(0:my1) ::  u00,w00
-  real(8),dimension(0:2*my-1,0:mx1,kb:ke) :: vor, phi, hv, hg 
+  real(8),dimension(0:2*my-1,0:mx1,kb:ke) :: vor, phi, hv, hg
   real(8),dimension(0:2*my-1,0:mx1,kb:ke) :: vorwk, phiwk, dvordy
 
   integer iproc,istat(MPI_STATUS_SIZE),ierr
@@ -40,8 +40,8 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
   logical lex
 
   ! -- LES
-  real*8  rhgc1(0:2*my-1,0:mx1,kb:ke),rhgc2(0:2*my-1,0:mx1,kb:ke) 
-  real*8  rhvc1(0:2*my-1,0:mx1,kb:ke),rhvc2(0:2*my-1,0:mx1,kb:ke) 
+  real*8  rhgc1(0:2*my-1,0:mx1,kb:ke),rhgc2(0:2*my-1,0:mx1,kb:ke)
+  real*8  rhvc1(0:2*my-1,0:mx1,kb:ke),rhvc2(0:2*my-1,0:mx1,kb:ke)
   !real*8,dimension(:),allocatable:: txy00,tyz00
 
   ! -- itemperature
@@ -49,7 +49,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
   real(8),dimension(0:2*my-1,0:mx1,kb:ke) :: tb, ht, tbwk
 
   ! -- itemperature
-  real*8  rhtc2(0:2*my-1,0:mx1,kb:ke) 
+  real*8  rhtc2(0:2*my-1,0:mx1,kb:ke)
 
   real(8),dimension(buffsize) :: chwk
 
@@ -65,22 +65,22 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
   real(8),dimension(:),allocatable :: rf0tb, tb00wk ! itemperature
   real(8),dimension(:,:),allocatable :: u1r, u2r, u3r, o1r, o2r, o3r
   real(8),dimension(:,:),allocatable :: tbr  ! itemperature
-  
+
   ! tmp 2d arrays
-  real(8),dimension(:,:),allocatable:: tmpxzr ! for fouxz, phys2 
+  real(8),dimension(:,:),allocatable:: tmpxzr ! for fouxz, phys2
   real(8),dimension(:),allocatable:: tmpx     ! 1d x-dir
   real(8),dimension(:),allocatable:: wk1dr,wk1dc ! for compact
   save wk1dr, wk1dc
   !$OMP THREADPRIVATE(wk1dr,wk1dc)
-  
+
   character*4 ext1
   character*128 fname, fnamet
   ! ------------------------------------------
 
 #ifdef TIMING
   t_derivyc = 0.d0; t_add_shear= 0.d0; t_uvw = 0.d0; t_copy=0.d0
-  t_fourxz = 0.d0; t_uome=0.d0;  t_nl=0.d0; t_hvhg=0.d0; 
-  t_otra=0.d0; t_waiting=0.d0  
+  t_fourxz = 0.d0; t_uome=0.d0;  t_nl=0.d0; t_hvhg=0.d0;
+  t_otra=0.d0; t_waiting=0.d0
 #endif
 
   comm_time = 0d0
@@ -91,23 +91,23 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
   wtime = 0d0
 
   if (nohist.eq.1) then
-     ihist  = 0   
+     ihist  = 0
   else
      ihist  = 1
   end if
 
   icfl = 1
   iwrote = 0
-  ifix_dt = 0  ! for debug  
-  
+  ifix_dt = 0  ! for debug
+
   !iadd_force = 0 ! add force (1, 1-pair-roll; 2, 2-pair-roll)
   ! do not use iadd_mode ==1 and 4 because hist is not updated for it
-  iadd_mode=5 ! add_mode = 2 is original 
-              ! add_mode = 3 mapped by exp(ik_x s y t) 
+  iadd_mode=5 ! add_mode = 2 is original
+              ! add_mode = 3 mapped by exp(ik_x s y t)
               ! add_mode = 4 mapped by exp(ik_x s y t) based on add_mode = 1
               ! [integrate the shear-term analytically]
               ! add_mode = 5 unmapped by exp(ik_x s y Delta_t) based on add_mode = 2
-              ! this is equivalent with iadd_mode=3 of Siwei's code (2014/04/21) 
+              ! this is equivalent with iadd_mode=3 of Siwei's code (2014/04/21)
 
               ! add_mode = -1 solves linearized Navier-Stokes eq.
 
@@ -118,15 +118,15 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
   irun  = 0  ! first time step is special in tim3rkp
   istop = 0  ! stop flag
   idump = 0
-  
+
   if (itemperature.eq.0) then
      write(*,*) 'itemperature should be 1 in crosst.f90'
      stop
   endif
   !   if(myid.eq.0) write(*,*) ' A.A.Wray-type RK3'
-  ! both options are checked with the RDT solution (rev.430) 
+  ! both options are checked with the RDT solution (rev.430)
   if (explicit.eq.1) then
-     
+
      if((myid.eq.0).and.(nohist.eq.0)) write(*,*) ' EXPLICIT: compute viscous terms explicitly, iadd_mode =', iadd_mode
   else
      if((myid.eq.0).and.(nohist.eq.0)) write(*,*) ' IMPLICIT: compute viscous terms semi-implicitly, iadd_mode =', iadd_mode
@@ -147,7 +147,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
  if (iadd_damping.eq.1) then
      if (myid.eq.0) write(*,*) ' iadd_damping, damp_up,aa = ', iadd_damping, damp_up, damp_aa
   end if
-  ! check: the statistics buffer should be initialized 
+  ! check: the statistics buffer should be initialized
   if (ihist.eq.1) then
      !if (abs(stime0 - time).gt.0.d0) then
      !   !write(*,*) 'the statistics may not be initialized..., stime0=',stime0
@@ -160,10 +160,10 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
      end if
      if ((total_dt.gt.0.d0).or.(nacumsp.gt.0)) then
         write(*,*) 'the statistics is not initialized...'
-        stop 
+        stop
      end if
      ! reset statistics
-     if (nohist.eq.0) then  
+     if (nohist.eq.0) then
         nacum = 0; stats = 0.0; nacumsp = 0
         sp = 0.d0; spl = 0.d0
         stime0 = time
@@ -176,7 +176,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
 
   if (myid.eq.0) then
      write(ext1,'(i4.4)') id22
-     fname=filout(1:index(filout,' ')-1)//'.'//ext1//'.'//'flqt'     
+     fname=filout(1:index(filout,' ')-1)//'.'//ext1//'.'//'flqt'
      inquire(file=fname,exist=lex)
      if (lex) write(*,*) 'flqt file is detected, stop:',trim(fname)
   end if
@@ -196,7 +196,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
      if (itemperature.eq.1) then
         write(iocf,'(a,3(1X,F14.6))') '% (Pr,Fr)=', 1.d0/re/fkappa, gbeta/abs(gbeta)/sqrt(gbeta)
      end if
-     write(iocf,'(a,3(1X,I10))')   '% grids (phys)', mgalx,my,mgalz 
+     write(iocf,'(a,3(1X,I10))')   '% grids (phys)', mgalx,my,mgalz
      write(iocf,*) '% re,alp ',re,alp
      write(iocf,*) '% Ly,gam ',Ly,gam
      write(iocf,*) '% s,chi ',s,chi
@@ -209,7 +209,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
         write(iocf,*) '% xf,vb,zf=',xforce,vbulk,zforce
      end if
      if (iadd_damping.ne.0) then
-        write(iocf,*) '% iadd_damping',damp_up,damp_aa 
+        write(iocf,*) '% iadd_damping',damp_up,damp_aa
      end if
      if (iuse_LES.eq.1) then
         write(iocf,*) '% iuse_LES',idynamic,iadd_visc,Cles
@@ -217,7 +217,10 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
      if (itemperature.eq.1) then
         write(iocf,*) '% itemperature',itemperature, fkappa, bym, gbeta
      end if
-     close(iocf)  ! close file 
+     if (inonNewtonian.eq.1) then
+        write(iocf,*) '% inonNewtonian',inonNewtonian,mu_0, mu_inf, lambda,nnf
+     end if
+     close(iocf)  ! close file
 
      fname=filout(1:index(filout,' ')-1)//'.'//ext1//'.cfbin'
      open(iocfb,file=fname,status='unknown',form='unformatted')
@@ -239,12 +242,12 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
      u00c = 0.d0; w00c = 0.d0;
 
      if (iydealiasing.eq.3) then
-           
+
         shp=dcmplx(1.d0,0.d0); shm=dcmplx(1.d0,0.d0)
         call filterc(u00,u00,shp,shm,1,0)
         call filterc(w00,w00,shp,shm,1,0)
         ! apply a compact filter
-        do k=kb,ke    
+        do k=kb,ke
            do i=0,mx1
               shp = shwkt(i)
               shm = shwkb(i)
@@ -256,7 +259,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
 
   end if
   !
-  ! ------------------- allocate everything ------------  
+  ! ------------------- allocate everything ------------
   allocate (u1r(mgalx+2,mgalz),u2r(mgalx+2,mgalz),u3r(mgalx+2,mgalz) )
   allocate (o1r(mgalx+2,mgalz),o2r(mgalx+2,mgalz),o3r(mgalx+2,mgalz) )
   allocate (rf0u(0:my1),u00wk(0:my1), rf0w(0:my1),w00wk(0:my1))
@@ -285,7 +288,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
      uxc=dcmplx(0.d0,0.d0);uyc=dcmplx(0.d0,0.d0);uzc=dcmplx(0.d0,0.d0)
      vxc=dcmplx(0.d0,0.d0);vyc=dcmplx(0.d0,0.d0);vzc=dcmplx(0.d0,0.d0)
      wxc=dcmplx(0.d0,0.d0);wyc=dcmplx(0.d0,0.d0);wzc=dcmplx(0.d0,0.d0)
-  
+
      !if (idynamic.eq.1) then
      !   allocate(u11r(mgalx+2,mgalz),u12r(mgalx+2,mgalz),u13r(mgalx+2,mgalz))
      !   allocate(u22r(mgalx+2,mgalz),u23r(mgalx+2,mgalz),u33r(mgalx+2,mgalz))
@@ -298,11 +301,37 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
 
   end if
 
-  if (itemperature.eq.1) then 
+    if (inonNewtonian.eq.1) then
+
+     allocate(txy00(0:my1),tyz00(0:my1))
+     txy00=0.d0; tyz00=0.d0
+     allocate(mu(mgalx+2,mgalz))
+     mu=0.d0;
+
+     allocate(ux(mgalx+2,mgalz),uy(mgalx+2,mgalz),uz(mgalx+2,mgalz))
+     allocate(vx(mgalx+2,mgalz),vy(mgalx+2,mgalz),vz(mgalx+2,mgalz))
+     allocate(wx(mgalx+2,mgalz),wy(mgalx+2,mgalz),wz(mgalx+2,mgalz))
+     ux=0.d0;uy=0.d0;uz=0.d0;
+     vx=0.d0;vy=0.d0;vz=0.d0;
+     wx=0.d0;wy=0.d0;wz=0.d0;
+     allocate(uxc(0:mx1,0:mz1),uyc(0:mx1,0:mz1),uzc(0:mx1,0:mz1))
+     allocate(vxc(0:mx1,0:mz1),vyc(0:mx1,0:mz1),vzc(0:mx1,0:mz1))
+     allocate(wxc(0:mx1,0:mz1),wyc(0:mx1,0:mz1),wzc(0:mx1,0:mz1))
+     uxc=dcmplx(0.d0,0.d0);uyc=dcmplx(0.d0,0.d0);uzc=dcmplx(0.d0,0.d0)
+     vxc=dcmplx(0.d0,0.d0);vyc=dcmplx(0.d0,0.d0);vzc=dcmplx(0.d0,0.d0)
+     wxc=dcmplx(0.d0,0.d0);wyc=dcmplx(0.d0,0.d0);wzc=dcmplx(0.d0,0.d0)
+     allocate(Txx(mgalx+2,mgalz),Tyy(mgalx+2,mgalz),Tzz(mgalx+2,mgalz))
+     allocate(Txy(mgalx+2,mgalz),Tzx(mgalx+2,mgalz),Tyz(mgalx+2,mgalz))
+     Txx=0.d0;Tyy=0.d0;Tzz=0.d0;
+     Txy=0.d0;Tyz=0.d0;Tzx=0.d0;
+
+  end if
+
+  if (itemperature.eq.1) then
      allocate (buff3(buffsize))
      buff3 = 0.d0;
      allocate (tbr(mgalx+2,mgalz))
-     tbr=0.d0; 
+     tbr=0.d0;
      allocate (rf0tb(0:my1), tb00wk(0:my1))
      rf0tb=0.d0; tb00wk=0.d0;
 
@@ -323,8 +352,8 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
   wk1dc = 0.d0
   !$OMP END PARALLEL
   ! force to set conjugate relations for kx=0 modes
-  ! since saving chikj2jik after hvhg keeps the initial perturbation forever 
-  call chjik2ikj(phi,phi,chwk,chwk)  
+  ! since saving chikj2jik after hvhg keeps the initial perturbation forever
+  call chjik2ikj(phi,phi,chwk,chwk)
   call chjik2ikj(vor,vor,chwk,chwk) ! ome2c
   call set_conj(vor,phi,0)  ! (rev.1158)
   call chikj2jik(phi,phi,chwk,chwk)
@@ -332,12 +361,12 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
 
   if (itemperature.eq.1) then
      call chjik2ikj(tb,tb,chwk,chwk)
-     call set_conj_t(tb,0) 
+     call set_conj_t(tb,0)
      call chikj2jik(tb,tb,chwk,chwk)
   end if
   if (iadd_sym.gt.0) then
      if ((myid.eq.0).and.(nohist.ne.1)) write(*,*) ' iadd_sym=',iadd_sym
-     call add_sym(vor,phi,u00,w00,buff1,buff2,u00s,w00s,chwk,iadd_sym) 
+     call add_sym(vor,phi,u00,w00,buff1,buff2,u00s,w00s,chwk,iadd_sym)
      ! 1: allocation of vors, phis
   end if
 
@@ -386,7 +415,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
         iter_time  = -wtime
      endif
 
-     if (mod(istep-1,nhist) .eq. 0) then 
+     if (mod(istep-1,nhist) .eq. 0) then
         if (nohist.eq.0) ihist=1
      end if
 
@@ -394,15 +423,15 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
         xoffb = (xoffb/Lx - int(xoffb/Lx) )*Lx ! negative
         xofft = -xoffb ! positive
      endif
-     xwkt = xofft; xwkb = xoffb 
-     zwkt = zofft; zwkb = zoffb 
+     xwkt = xofft; xwkb = xoffb
+     zwkt = zofft; zwkb = zoffb
 
-     !if ((mod(istep-1,nimag).eq.0).or.(istop.eq.1).or.(idump.eq.1)) then   
+     !if ((mod(istep-1,nimag).eq.0).or.(istop.eq.1).or.(idump.eq.1)) then
      if ((istep-1).ne.0) then
      if (((mod(istep-1,nimag).eq.0).and.(istep.ne.1)).or.(istop.eq.1).or.(idump.eq.1)) then
-        ! ---  write image to a file. Note: dvordy,hv are work arrays 
+        ! ---  write image to a file. Note: dvordy,hv are work arrays
         !
-        if (noescru.eq.0) then 
+        if (noescru.eq.0) then
            if (iwrite_hdf5.eq.1) then
               if (itemperature.eq.1) then
                  call write_t_hdf5(vor,phi,tb,u00,w00,tb00,dvordy,hv,ht,chwk)
@@ -419,7 +448,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
            exit
         end if
         idump = 0
-     endif  
+     endif
      end if
      !   ---    prepara phiwk,vorwk,u00wk,w00wk */
      !   ---    all proc. has u00 etc.?
@@ -427,12 +456,12 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
      u00b = s*(-Ly) ! yoffb, negative
      u00t = s*Ly    ! yofft, positive
      w00b = 0.d0
-     w00t = 0.d0     
+     w00t = 0.d0
 
      if (abs(s).gt.0.001d0) then ! s shoud be 0 or 1 ?
 
-        !$OMP PARALLEL DEFAULT(SHARED) PRIVATE(i,ithread) 
-        if ((istep.eq.1).and.(myid.eq.0)) write(*,*) 'I am thread', OMP_GET_THREAD_NUM(), 'of MPI & 
+        !$OMP PARALLEL DEFAULT(SHARED) PRIVATE(i,ithread)
+        if ((istep.eq.1).and.(myid.eq.0)) write(*,*) 'I am thread', OMP_GET_THREAD_NUM(), 'of MPI &
        &                                              task', myid
         !$OMP DO SCHEDULE(STATIC)
         ! do k=0,mz1 ! each proc has full shift infomation
@@ -447,7 +476,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
         !shwkt=sht; shwkb=shb; ! memcopy
         !call vcopy((mx1+1)*2,sht,shwkt)
         !call vcopy((mx1+1)*2,shb,shwkb)
-        !$OMP END PARALLEL 
+        !$OMP END PARALLEL
 
         call dcopy((mx1+1)*2,sht,1,shwkt,1)
         call dcopy((mx1+1)*2,shb,1,shwkb,1)
@@ -472,48 +501,48 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
         enddo
         ! --- do something about writing the spectra here ---
 
-     endif ! --- end special first step --- 
+     endif ! --- end special first step ---
 
      do rkstep=1,3       ! --- Runge-Kutta third order  ---
-        ! --- (0) pre-computes for nonlinear terms 
+        ! --- (0) pre-computes for nonlinear terms
         !         here hg is v, hv is overwritten by dv/dy
-#ifdef TIMING        
+#ifdef TIMING
         t1= MPI_WTIME()
 #endif
-        do k=kb,ke    
+        do k=kb,ke
            !$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,shp,shm) SCHEDULE(STATIC)
            do i=0,mx1
               shp = shwkt(i)
               shm = shwkb(i)
               ! --- d(ome_2)/ dy
               call derivyc(vor(0,i,k),dvordy(0,i,k),shp,shm,1,2,1)
-              ! --- dv/dy 
+              ! --- dv/dy
               call derivyc(hg(0,i,k),hv(0,i,k),shp,shm,1,2,0) ! skip _addshear
            enddo
            !$OMP END PARALLEL DO
         enddo
-#ifdef TIMING        
+#ifdef TIMING
         t2 = MPI_WTIME()
         t_derivyc = t2-t1
 #endif
-        ! (1) computes nonlinear terms 
+        ! (1) computes nonlinear terms
         ! c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c
         ! all arrays are  sent from y-x --> x-z
         ! phi, vor is reference variables (should be preserved)
         ! c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c
-        
+
         !call MPI_BARRIER(MPI_COMM_WORLD,ierr)
         ! copy phi and vor to buff1, buff2 not to destroy it. (rev.416)
 
         if ((iydealiasing.eq.1).or.(iydealiasing.eq.2)) then
-           
+
            fac = (xwkb/Lx - int(xwkb/Lx) )*Lx/Ly
            if (fac < -Lx/Ly*0.5d0) then
               ! positively distorted
               fac=Lx/Ly+fac;
               call moving_frame(vor,phi,fac,+1)
               call dealiasing_y(vor,phi,u00,w00,u00tmp,w00tmp,u00c,w00c,fac)
-              call moving_frame(vor,phi,-fac,-1)              
+              call moving_frame(vor,phi,-fac,-1)
            else
               ! negatively distorted
               call moving_frame(vor,phi,fac,-1)
@@ -523,12 +552,12 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
            !if (myid.eq.0) write(*,*)  ' apply dealiasing in y'
 
         elseif (iydealiasing.eq.3) then
-           
+
            shp=dcmplx(1.d0,0.d0); shm=dcmplx(1.d0,0.d0)
            call filterc(u00,u00,shp,shm,1,0)
            call filterc(w00,w00,shp,shm,1,0)
            ! apply a compact filter
-           do k=kb,ke    
+           do k=kb,ke
               do i=0,mx1
                  shp = shwkt(i)
                  shm = shwkb(i)
@@ -546,7 +575,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
         call chjik2ikj(buff1,buff1,chwk,chwk)
         call chjik2ikj(buff2,buff2,chwk,chwk) ! ome2c
         !
-        !call chjik2ikj(phi,phi,chwk,chwk)  
+        !call chjik2ikj(phi,phi,chwk,chwk)
         !call chjik2ikj(vor,vor,chwk,chwk) ! ome2c
         call set_conj(buff1,buff2,0)  ! rev(1158)
         call chjik2ikj(hv,hv,chwk,chwk)   ! dv/dy
@@ -556,27 +585,33 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
         if (itemperature.eq.1) then
            buff3=0.d0; ht=0.d0
            call dcopy(buffsize,tb,1,buff3,1)
-           call chjik2ikj(buff3,buff3,chwk,chwk)  
-        end if        
+           call chjik2ikj(buff3,buff3,chwk,chwk)
+        end if
         if (iuse_LES.eq.1) then
            ! LES buffers
            rhvc1= 0.d0; rhvc2=0.d0
            rhgc1= 0.d0; rhgc2=0.d0
         end if
-#ifdef TIMING        
+
+        if (inonNewtonian.eq.1) then
+           ! LES buffers
+           rhvc1= 0.d0; rhvc2=0.d0
+           rhgc1= 0.d0; rhgc2=0.d0
+        end if
+#ifdef TIMING
         call MPI_BARRIER(MPI_COMM_WORLD,ierr)
         t_hvhg0 = MPI_WTIME()
 #endif
 !        !!(rev.416) buff1:phi, buff2:vor
-!        call hvhg(buff1,buff2,u00,w00,hv,hg,rf0u,rf0w,dvordy,rkstep, & 
+!        call hvhg(buff1,buff2,u00,w00,hv,hg,rf0u,rf0w,dvordy,rkstep, &
 !             u1r,u2r,u3r,o1r,o2r,o3r,u1r,u2r,u3r,o1r,o2r,o3r, &
 !             tmpxzr,tmpx,wk1dr)
-        call hvhgt(buff1,buff2,u00,w00,hv,hg, & 
-             rf0u,rf0w,dvordy,rkstep, & 
-             u1r,u2r,u3r,o1r,o2r,o3r, & 
+        call hvhgt(buff1,buff2,u00,w00,hv,hg, &
+             rf0u,rf0w,dvordy,rkstep, &
              u1r,u2r,u3r,o1r,o2r,o3r, &
-             tmpxzr,tmpx,wk1dr,rhvc1,rhvc2,rhgc1,rhgc2, & 
-             buff3,tb00,ht,rf0tb,tbr,tbr,rhtc2) 
+             u1r,u2r,u3r,o1r,o2r,o3r, &
+             tmpxzr,tmpx,wk1dr,rhvc1,rhvc2,rhgc1,rhgc2, &
+             buff3,tb00,ht,rf0tb,tbr,tbr,rhtc2)
 
 #ifdef TIMING
         t_hvhg = t_hvhg + MPI_WTIME() - t_hvhg0
@@ -597,10 +632,16 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
            call chikj2jik(rhgc1,rhgc1,chwk,chwk)
            call chikj2jik(rhgc2,rhgc2,chwk,chwk)
         end if
+        if (inonNewtonian.eq.1) then
+           call chikj2jik(rhvc1,rhvc1,chwk,chwk)
+           call chikj2jik(rhvc2,rhvc2,chwk,chwk)
+           call chikj2jik(rhgc1,rhgc1,chwk,chwk)
+           call chikj2jik(rhgc2,rhgc2,chwk,chwk)
+        end if
         if (itemperature.eq.1) then
            call chikj2jik(rhtc2,rhtc2,chwk,chwk)
            call chikj2jik(ht,ht,chwk,chwk)
-        end if        
+        end if
         ! ! skip (rev.416)
         ! !call chikj2jik(phi,phi,chwk,chwk)
         ! !call chikj2jik(vor,vor,chwk,chwk)
@@ -610,7 +651,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
         ! Note: now buff1(phi) and buff2(vor) is not overwritten ...
         !
         ! --- computes rhv = d^2H2/dx^2 + d^2H2/dz^2 - d(dH1/dx + dH3/dz)/dy
-#ifdef TIMING        
+#ifdef TIMING
         t1= MPI_WTIME()
 #endif
 
@@ -626,11 +667,12 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
         do k=kb,ke
            !$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,shp,shm) SCHEDULE(STATIC)
            do i=0,mx1
-              shp = shwkt(i) 
+              shp = shwkt(i)
               shm = shwkb(i)
               call derivyc(dvordy(0,i,k),dvordy(0,i,k),shp,shm,1,2,1)
               if (iuse_LES.eq.1) call derivyc(rhgc2(0,i,k),rhgc2(0,i,k),shp,shm,1,2,0)
-              if (itemperature.eq.1) then 
+              if (inonNewtonian.eq.1) call derivyc(rhgc2(0,i,k),rhgc2(0,i,k),shp,shm,1,2,0)
+              if (itemperature.eq.1) then
                  ! -d(vT)/dy
                  call derivyc(rhtc2(0,i,k),rhtc2(0,i,k),shp,shm,1,2,0)
               end if
@@ -650,10 +692,10 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
               !$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,shp,shm,rk) SCHEDULE(STATIC)
               do i=0,mx1
                  if ((i.ne.0).or.(k.ne.0)) then
-                    shp = shwkt(i) 
+                    shp = shwkt(i)
                     shm = shwkb(i)
                     rk  = -(gam2(k)+alp2(i))
-                    !call derivyc(rhvc2(0,i,k) ,buff(0,i,k)  ,shp,shm,2,2,1) 
+                    !call derivyc(rhvc2(0,i,k) ,buff(0,i,k)  ,shp,shm,2,2,1)
                     ! BUG fixed: addshear should be called for 2nd-dev
                     !rhvc2(:,i,k)=-buff(:,i,k)-(gam2(k)+alp2(i))*rhvc2(:,i,k)
                     ! ! replaced with visc3d() with factor=-1.d0*rk
@@ -664,7 +706,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
            enddo
         end if
 
-#ifdef TIMING        
+#ifdef TIMING
         t2 = MPI_WTIME()
         t_derivyc = t2-t1
 #endif
@@ -674,6 +716,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
 
         hv = hv - dvordy
         if (iuse_LES.eq.1) hg = hg + rhgc1  + rhgc2
+        if (inonNewtonian.eq.1) hg = hg + rhgc1  + rhgc2
         if (itemperature.eq.1) ht = ht + rhtc2
 
         ! (1-ii) here you can add body force: ++hv, ++hg
@@ -681,7 +724,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
            ! streamwise-roll force F=(Fy,Fz), div.F = 0
            !  then hv += (d^2/dz^2 + d^2/dy^2)*Fy
            !       hg += 0
-           if((mod(istep-1,nhist).eq.0).and.(rkstep.eq.1)) then 
+           if((mod(istep-1,nhist).eq.0).and.(rkstep.eq.1)) then
               if ((ihist.eq.1).and.(myid.eq.0)) then
                  write(*,*) ' add_force',iadd_force
               end if
@@ -692,25 +735,25 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
            rf0u = rf0u + xforce ! inertial force relative to the moving frame
         endif
         if (iadd_damping.eq.1) then
-           call add_damping(phi,vor,u00,w00,hv,hg,rf0u,rf0w,iadd_damping) 
+           call add_damping(phi,vor,u00,w00,hv,hg,rf0u,rf0w,iadd_damping)
         end if
         !if (itemperature.eq.1) then
         !   ! hv += gbeta*lap.T ! add this later using visc3d for explicit
         !end if
 
         !---advance in time :
-        r1 = ca(rkstep)*Deltat 
+        r1 = ca(rkstep)*Deltat
         dtr1v = dtrv*ibeta(rkstep) ! implicit only
         dtr1k = dtrk*ibeta(rkstep) ! implicit only
         !
         if (explicit.eq.1) then
            ! --- compute  nonlinear terms and viscous terms explicitly ---
            ! (2-explicit) add  nu*lap.(phi) -> ++[hv,hg]
-#ifdef TIMING        
+#ifdef TIMING
            t1= MPI_WTIME()
 #endif
            if (iuse_LES.eq.1) then
-           
+
               shp=dcmplx(1.d0,0.d0); shm=dcmplx(1.d0,0.d0)
               call derivyc(txy00,txy00,shp,shm,1,1,0)
               call derivyc(tyz00,tyz00,shp,shm,1,1,0)
@@ -720,7 +763,15 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
 
            endif
 
-           if (( (iadd_visc.eq.1).and.(iuse_LES.eq.1) ).or.(iuse_LES.eq.0)) then
+           if (inonNewtonian.eq.1) then
+              shp = dcmplx(1.d0, 0.d0);shm = dcmplx(1.d0, 0.d0)
+              call derivyc(txy00, txy00, shp, shm, 1, 1, 0)
+              call derivyc(tyz00, tyz00, shp, shm, 1, 1, 0)
+              rf0u = rf0u + txy00
+              rf0w = rf0w + tyz00
+           endif
+
+           if (( (iadd_visc.eq.1).and.(iuse_LES.eq.1) ).or.((iuse_LES.eq.0).and.(inonNewtonian.eq.0))) then
               fac = 1.d0/Re
               do k=kb,ke          ! --- computes  lap.(vor)
                  !$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,shp,shm,rk) SCHEDULE(STATIC)
@@ -739,7 +790,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
                     end if
                  enddo
                  !$OMP END PARALLEL DO
-              enddo              
+              enddo
               !
               ! (*) zerozero-mode (all slaves computes 00modes (from rev.379))
               !    (2*-explicit) compute laplacian --> ++[rf0u,rf0w]
@@ -747,14 +798,14 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
               rk=0.d0
               fac = (1.d0/Re) ! nu
               call visc3d(u00,rf0u,wk1dr,shp,shm,1,rk,fac,'+',0)
-              call visc3d(w00,rf0w,wk1dr,shp,shm,1,rk,fac,'+',0) 
+              call visc3d(w00,rf0w,wk1dr,shp,shm,1,rk,fac,'+',0)
               if (itemperature.eq.1) then
                  fac_t = fkappa
                  call visc3d(tb00,rf0tb,wk1dr,shp,shm,1,rk,fac_t,'+',0)
               end if
            end if
-                      
-#ifdef TIMING        
+
+#ifdef TIMING
            t2 = MPI_WTIME()
            t_derivyc = t2-t1
 #endif
@@ -762,12 +813,12 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
               !! multiply the right hand side by exp(i s*y(j)*alp*t)
               fac=xwkt/Ly
               call moving_frame(hg,hv,fac,1)
-              if (itemperature.eq.1) then 
+              if (itemperature.eq.1) then
                  write(*,*) 'use iadd_mode=5, stop'
                  stop
               end if
            endif
-           
+
            ! (3-explicit) add gama(krk)*[hv,hg] --> ++[phiwk,vorwk]
            !             here hv is  R= hv + nu*lap.(vor)
            !             then, phiwk = gama_k*R_k + zeta_{k-1}*R_{k-1}
@@ -779,12 +830,12 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
            if (rkstep.eq.1) then
               vorwk = gama(rkstep)*hg
               phiwk = gama(rkstep)*hv
-              if (itemperature.eq.1) then 
+              if (itemperature.eq.1) then
                  tbwk = gama(rkstep)*ht
               end if
            else
               vorwk = vorwk + gama(rkstep)*hg
-              phiwk = phiwk + gama(rkstep)*hv 
+              phiwk = phiwk + gama(rkstep)*hv
               if (itemperature.eq.1) then
                  tbwk = tbwk + gama(rkstep)*ht
               end if
@@ -804,7 +855,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
               if (itemperature.eq.1) then
                  tb00wk = tb00wk + gama(rkstep)*rf0tb
               end if
-           end if         
+           end if
            !
            if ((iadd_mode.ge.3).and.(iadd_mode.le.4)) then
               fac = xwkt/Ly
@@ -812,10 +863,10 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
            endif
            ! (4-explicit) update variables
            !
-           vor = vor + Deltat*vorwk           
+           vor = vor + Deltat*vorwk
            phi = phi + Deltat*phiwk
            if (itemperature.eq.1) then
-              tb = tb + Deltat*tbwk 
+              tb = tb + Deltat*tbwk
            end if
            !
            !    (4*-explicit) update zerozero-mode
@@ -835,7 +886,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
 
               if (iydealiasing.eq.2) then
                  xwkb = (xwkb/Lx - int(xwkb/Lx) )*Lx
-                 xwkt = -xwkb 
+                 xwkt = -xwkb
               endif
 
               !do k=0,mz1
@@ -847,9 +898,9 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
                  enddo
               !enddo
            endif
-            
+
            !
-           ! (6-explicit) store [Rv,Rg]*zeta_k -> [phiwk,vorwk] 
+           ! (6-explicit) store [Rv,Rg]*zeta_k -> [phiwk,vorwk]
            !               here Rv and Rg are (nonlinear) + (linear)
            !         iadd_mode=5: mapped by exp( (c(i)-c(i-1))*dt*k_x*S*y ), (i=1, 2), c(0) = 0
            if (rkstep.ne.3) then
@@ -889,7 +940,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
            elseif ((iadd_mode.eq.5).or.(iadd_mode.eq.-1)) then
               if (rkstep.eq.1) then
                  fac = -s*r1
-              else 
+              else
                  fac = -s*(ca(rkstep)-ca(rkstep-1))*Deltat
               endif
               call moving_frame(vor,phi,fac,-1)
@@ -897,8 +948,8 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
                  call moving_frame_t(tb,fac,-1)
               end if
            endif
-           ! (7-explicit) solve lap.v = phi 
-           ! -- v 
+           ! (7-explicit) solve lap.v = phi
+           ! -- v
            do k=kb,ke
               !$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,rk,shp,shm) SCHEDULE(STATIC)
               do i=0,mx1
@@ -912,10 +963,10 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
               !$OMP END PARALLEL DO
            enddo
 
-        else ! semi-implicit for viscous terms 
-           ! --- compute nonlinear terms explicitly and viscous implicitly 
+        else ! semi-implicit for viscous terms
+           ! --- compute nonlinear terms explicitly and viscous implicitly
            !
-           ! 
+           !
            if (itemperature.eq.1) then
               do k=kb,ke          ! --- computes  lap.(vor),  lap.(phi)
                  !$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,shp,shm,rk) SCHEDULE(STATIC)
@@ -943,13 +994,13 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
            else
               !$OMP PARALLEL WORKSHARE
               vorwk = vorwk + gama(rkstep)*hg
-              phiwk = phiwk + gama(rkstep)*hv              
+              phiwk = phiwk + gama(rkstep)*hv
               !if (itemperature.eq.1) then
                  tbwk = tbwk + gama(rkstep)*ht
               !end if
               !$OMP END PARALLEL WORKSHARE
            end if
-           ! (3) compute laplacian 
+           ! (3) compute laplacian
            !          alpha(krk)*[phi,vor] --> ++[phiwk,vorwk]
            fac = alpha(rkstep)*(1.d0/Re)
            if (itemperature.eq.1) fac_t = alpha(rkstep)*fkappa
@@ -960,18 +1011,18 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
                     shp = shwkt(i) ! use the previous one before updated by (7)
                     shm = shwkb(i)
                     rk = gam2(k)+alp2(i)
-                    call visc3d(vor(0,i,k),vorwk(0,i,k),wk1dc,shp,shm,2,rk,fac,'+',1) 
+                    call visc3d(vor(0,i,k),vorwk(0,i,k),wk1dc,shp,shm,2,rk,fac,'+',1)
                     call visc3d(phi(0,i,k),phiwk(0,i,k),wk1dc,shp,shm,2,rk,fac,'+',0)
                     if (itemperature.eq.1) then
                        call visc3d(tb(0,i,k),tbwk(0,i,k),wk1dc,shp,shm,2,rk,fac_t,'+',0)
                     end if
                  endif
               enddo
-              !$OMP END PARALLEL DO 
+              !$OMP END PARALLEL DO
            enddo
-           ! (*) zero-zero mode 
+           ! (*) zero-zero mode
            if (myid.eq.0) then
-              ! (2*) add gama(krk)*[rf0u,rf0w] --> ++[u00wk,w00wk] 
+              ! (2*) add gama(krk)*[rf0u,rf0w] --> ++[u00wk,w00wk]
               if (rkstep.eq.1) then
                  u00wk = gama(rkstep)*rf0u
                  w00wk = gama(rkstep)*rf0w
@@ -980,24 +1031,24 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
                  end if
               else
                  u00wk = u00wk + gama(rkstep)*rf0u
-                 w00wk = w00wk + gama(rkstep)*rf0w   
+                 w00wk = w00wk + gama(rkstep)*rf0w
                  if (itemperature.eq.1) then
-                    tb00wk = tb00wk + gama(rkstep)*rf0tb   
+                    tb00wk = tb00wk + gama(rkstep)*rf0tb
                  end if
               end if
               ! (3*) compute laplacian --> ++[u00wk,w00wk]
               shp=dcmplx(1.d0,0.d0); shm=dcmplx(1.d0,0.d0)
               rk=0.d0
               fac = alpha(rkstep)*(1.d0/Re)
-              call visc3d(u00,u00wk,wk1dr,shp,shm,1,rk,fac,'+',0) 
+              call visc3d(u00,u00wk,wk1dr,shp,shm,1,rk,fac,'+',0)
               call visc3d(w00,w00wk,wk1dr,shp,shm,1,rk,fac,'+',0)
               if (itemperature.eq.1) then
                  fac_t = alpha(rkstep)*fkappa
-                 call visc3d(tb00,tb00wk,wk1dr,shp,shm,1,rk,fac_t,'+',0) 
+                 call visc3d(tb00,tb00wk,wk1dr,shp,shm,1,rk,fac_t,'+',0)
               end if
            end if
 
-           ! (4) add (1.d0/Dt)*[phi,vor] --> ++[phiwk,vorwk]           
+           ! (4) add (1.d0/Dt)*[phi,vor] --> ++[phiwk,vorwk]
            !$OMP PARALLEL WORKSHARE
            vorwk = vorwk + (1.d0/Deltat)*vor
            phiwk = phiwk + (1.d0/Deltat)*phi
@@ -1005,7 +1056,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
               tbwk = tbwk + (1.d0/Deltat)*tb
            !end if
            !$OMP END PARALLEL WORKSHARE
-           ! (5) driving pressure: skip 
+           ! (5) driving pressure: skip
            ! [only for primitive valiables (fractional step method)]
 
            ! (6) multiply,  -1/(beta(krk)*nu)*[phiwk,vorwk]
@@ -1015,10 +1066,10 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
            vorwk = fac*vorwk
            phiwk = fac*phiwk
            !if (itemperature.eq.1) then
-              tbwk = fac_t*tbwk 
+              tbwk = fac_t*tbwk
            !end if
-           !$OMP END PARALLEL WORKSHARE 
-           ! (* 4* - 6*) zero-zero mode 
+           !$OMP END PARALLEL WORKSHARE
+           ! (* 4* - 6*) zero-zero mode
            if (myid.eq.0) then
               !write(*,*) 'Deltat, dtr1=', Deltat,dtr1
               u00wk = fac*(u00wk + (1.d0/Deltat)*u00)
@@ -1027,15 +1078,15 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
                  tb00wk = fac_t*(tb00wk + (1.d0/Deltat)*tb00)
               end if
            end if
-           
+
            ! (7) ------ update shear-periodic boundary -----
            if (abs(s).gt.0.5d0) then ! s shoud be 0 or 1
-              
+
               xwkb = xoffb + r1*u00b
               xwkt = xofft + r1*u00t
               zwkb = zoffb + r1*w00b
               zwkt = zofft + r1*w00t
-              
+
               !do k=0,mz1
                  do i=0,mx1
                     !shb(i,k)  = cdexp(-xalp(i)*xwkb-xgam(k)*zwkb)
@@ -1052,7 +1103,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
            if ((iadd_mode.eq.5).or.(iadd_mode.eq.-1)) then
               if (rkstep.eq.1) then
                  fac = -s*r1
-              else 
+              else
                  fac = -s*(ca(rkstep)-ca(rkstep-1))*Deltat
               endif
               call moving_frame(vorwk,phiwk,fac,-1)
@@ -1060,7 +1111,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
                  call moving_frame_t(tbwk,fac,-1)
               end if
            endif
-           
+
            do k=kb,ke
               !$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,shp,shm,rk,rk2) SCHEDULE(STATIC)
               do i=0,mx1
@@ -1070,7 +1121,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
                     !
                     shp = shwkt(i)
                     shm = shwkb(i)
-                    ! -- (8-i) vor viscous 
+                    ! -- (8-i) vor viscous
                     call lapcdy(vorwk(0,i,k),rk2,vor(0,i,k),shp,shm,2)
                  endif
               enddo
@@ -1085,7 +1136,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
                     !
                     shp = shwkt(i)
                     shm = shwkb(i)
-                    ! -- (8-ii) lap.(phi) 
+                    ! -- (8-ii) lap.(phi)
                     call lapcdy(phiwk(0,i,k),rk2,phi(0,i,k),shp,shm,2)
                  endif
               enddo
@@ -1101,7 +1152,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
                        !
                        shp = shwkt(i)
                        shm = shwkb(i)
-                       ! -- (8-i) temperature diffusion  
+                       ! -- (8-i) temperature diffusion
                        call lapcdy(tbwk(0,i,k),rk2,tb(0,i,k),shp,shm,2)
                     endif
                  enddo
@@ -1140,7 +1191,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
                     !
                     shp = shwkt(i)
                     shm = shwkb(i)
-                    ! -- v 
+                    ! -- v
                     call lapcdy(phi(0,i,k),rk,hg(0,i,k),shp,shm,2)
                  endif
               enddo
@@ -1148,7 +1199,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
            enddo
            !    Now hv is free, so that we can store dv/dy to hv
            !    at the beginning of rkstep
-           ! (*) zero-zero mode 
+           ! (*) zero-zero mode
            if (myid.eq.0) then
               ! (8*) solve helmholtz equations and store nonlinear terms:
               shp=dcmplx(1.d0,0.d0); shm=dcmplx(1.d0,0.d0)
@@ -1157,7 +1208,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
               call lapcdy(w00wk,dtr1v,w00,shp,shm,1) ! real*8
               if (itemperature.eq.1) then
                  shp=dcmplx(1.d0,0.d0); shm=dcmplx(1.d0,0.d0)
-                 call lapcdy(tb00wk,dtr1k,tb00,shp,shm,1) ! real*8  
+                 call lapcdy(tb00wk,dtr1k,tb00,shp,shm,1) ! real*8
               end if
               !master proc. SENDING
               do iproc=1,numerop-1
@@ -1170,7 +1221,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
                          MPI_COMM_WORLD,ierr)
                  end if
               enddo
-              ! (9*) store nonlinear term: zeta(krk)*rf0u --> u00wk,w00wk 
+              ! (9*) store nonlinear term: zeta(krk)*rf0u --> u00wk,w00wk
               if (rkstep.ne.3) then
                  u00wk = zeta(rkstep)*rf0u
                  w00wk = zeta(rkstep)*rf0w
@@ -1191,12 +1242,12 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
                       MPI_COMM_WORLD,istat,ierr)
               end if
            endif
-           
+
         endif ! end of explicit = 0
 
         if (iadd_sym.gt.0) then
            !if ((myid.eq.0).and.(nohist.ne.1)) write(*,*) ' iadd_sym=',iadd_sym
-           call add_sym(vor,phi,u00,w00,buff1,buff2,u00s,w00s,chwk,iadd_sym) 
+           call add_sym(vor,phi,u00,w00,buff1,buff2,u00s,w00s,chwk,iadd_sym)
         end if
 
      enddo  !!! finalizado subpaso del RK3
@@ -1205,7 +1256,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
      xofft=xwkt
      zoffb=zwkb
      zofft=zwkt
-     
+
      !sht = shwkt; shb = shwkb; ! memcopy
      !call vcopy((mx1+1)*2,shwkt,sht)
      !call vcopy((mx1+1)*2,shwkb,shb)
@@ -1227,7 +1278,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
         end if
         comm_time = commtimer
      end if
-     
+
   enddo   !!!!!!!  this is the istep loop
 
   if ((myid.eq.0).and.(nohist.eq.0)) then
@@ -1243,10 +1294,10 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
 #ifdef TIMING
      write(*,*) "time cost if derivyc:",t_derivyc
      write(*,*) "total of hvhg:",t_hvhg
-     write(*,*) "      in hvhg (addshear, uvw, copy, fourxz):", & 
-          t_add_shear, t_uvw, t_copy, t_fourxz  
+     write(*,*) "      in hvhg (addshear, uvw, copy, fourxz):", &
+          t_add_shear, t_uvw, t_copy, t_fourxz
      write(*,*) "              (uxomg, nl, otra, wait rf0uw):", &
-          t_uome, t_nl, t_otra, t_waiting 
+          t_uome, t_nl, t_otra, t_waiting
 #endif
   endif
 
@@ -1257,7 +1308,7 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
   deallocate(tmpxzr)
 
   if (itemperature.eq.1) then
-     deallocate(uTc,vTc,wTc)  
+     deallocate(uTc,vTc,wTc)
      deallocate(uTr,vTr,wTr)
   end if
 
@@ -1284,7 +1335,22 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
 
      deallocate(txy00,tyz00)
 
-  end if    
+  end if
+
+  if (inonNewtonian.eq.1) then
+
+     deallocate(txy00,tyz00)
+     deallocate(wxc,wyc,wzc)
+     deallocate(vxc,vyc,vzc)
+     deallocate(uxc,uyc,uzc)
+     deallocate(wx,wy,wz)
+     deallocate(vx,vy,vz)
+     deallocate(ux,uy,uz)
+     deallocate(mu)
+     deallocate(Txx,Tyy,Tzz)
+     deallocate(Txy,Tzx,Tyz)
+
+  end if
 
   deallocate(rf0u,u00wk,rf0w,w00wk)
   deallocate(o1r,o2r,o3r)
@@ -1303,11 +1369,11 @@ subroutine crosst(vor,phi,u00,w00,hv,hg,phiwk,vorwk,dvordy, &
   end if
 
   if ((myid.eq.0).and.(nohist.eq.0)) then
-     !close(iocf)  ! close file 
-     close(iocfb)  ! close binary file 
+     !close(iocf)  ! close file
+     close(iocfb)  ! close binary file
      if (itemperature.eq.1) close(iotfb)
   end if
-  ! reset ihist = 0 
+  ! reset ihist = 0
   ihist=0
 
 end subroutine crosst
@@ -1336,12 +1402,12 @@ end subroutine crosst
 !/*    low storage : 24/01/01 (incomplete)                           */
 !/*    compact runge-kutta A.S. : 24/Nov/2011                        */
 !/********************************************************************/
-subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, & 
+subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
      rf0u,rf0w,ome1c,rkstep, &
      u1r,u2r,u3r,o1r,o2r,o3r,  &
      u1c,u2c,u3c,o1c,o2c,o3c,  & ! memory is shared with u1r, etc ...
      tmpxzr,tmpx,tmpy,rhvc1,rhvc2,rhgc1,rhgc2, & ! txy00,tyz00,
-     tempc,tb00,rhtc,rf0tb,tbr,tbc,rhtc2 ) 
+     tempc,tb00,rhtc,rf0tb,tbr,tbc,rhtc2 )
 
   use ctes
   use statistics
@@ -1354,7 +1420,7 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
 
   implicit none
   include "mpif.h"
-  
+
   complex(8),dimension(0:mx1,0:mz1,jb:je) :: phic, ome1c, ome2c, rhgc, rhvc
   complex(8),dimension(0:mx1,0:mz1,jb:je) :: tempc, rhtc ! itemperature
   real(8),dimension(0:my1) :: rf0u, rf0w, u00, w00
@@ -1389,16 +1455,16 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
   !  ome1 is d(omega_2)/dy -- F-F-P
   !  ome2 is omega_2 --F-F-P
   ! c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c
-#ifdef TIMING        
+#ifdef TIMING
   t1=MPI_WTIME()
 #endif
   ! iadd_mode=1  ! using u = u' + Sy (see eq.(12) and (16) in Doc/note.pdf)
   ! iadd_mode=2  ! using u = u' + Sy, oz = oz' - S (see eq.(13) and (17))
   !
   ! iadd_mode=1 and 2 makes no difference in statistics
-  ! ! both options are checked with the RDT solution (rev.430) 
-  ! ! I have forgotten to revert it to iadd_mode=2  (rev.440) 
-  ! ! take care for the statistics, o3m o3p includes mean shear 
+  ! ! both options are checked with the RDT solution (rev.430)
+  ! ! I have forgotten to revert it to iadd_mode=2  (rev.440)
+  ! ! take care for the statistics, o3m o3p includes mean shear
   ! ! for the case of 'iadd_mode=1'
   ! ---------------- Initialize variables outside of the y loop
   !
@@ -1415,16 +1481,16 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
   !end if
 #ifdef TIMING
   t2=MPI_WTIME()
-  t_derivyc = t_derivyc + (t2-t1) 
+  t_derivyc = t_derivyc + (t2-t1)
 #endif
   if ((iadd_mode.eq.1).or.(iadd_mode.eq.4).or.(iadd_mode.eq.6)) then
      do j=0,my1
-        ! u00(j) =u00(j)    ! now u00 is the mean velocity fluctuation 
+        ! u00(j) =u00(j)    ! now u00 is the mean velocity fluctuation
         rf0u(j)=rf0u(j) +s  ! --- add shear --- now rf0u is du0/dy
      end do
   !elseif ((iadd_mode.eq.2).or.(iadd_mode.eq.2)) then
   !  ! do j=0,my1
-  !  !    u00(j) =u00(j)       ! now u00 is the mean velocity fluctuation 
+  !  !    u00(j) =u00(j)       ! now u00 is the mean velocity fluctuation
   !  !    rf0u(j)=rf0u(j)      ! now rf0u is du0/dy
   !  ! end do
   end if
@@ -1461,12 +1527,12 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
         tbc(0,0) = tb00(j) ! does not include mean temp. d(tb99)/dy
      end if
 
-     ! --------------------- computes non 0 modes of ome1, ome3, u1, u3 
+     ! --------------------- computes non 0 modes of ome1, ome3, u1, u3
      o3c(0,1:mz1) = -ome1c(0,1:mz1,j)/xgam(1:mz1)
      o1c(0,1:mz1) = - phic(0,1:mz1,j)/xgam(1:mz1)
      u3c(0,1:mz1) = - rhvc(0,1:mz1,j)/xgam(1:mz1)
      u1c(0,1:mz1) =  ome2c(0,1:mz1,j)/xgam(1:mz1)
-    
+
      kkw(0:mx1)=0.d0
      !$OMP PARALLEL DEFAULT(SHARED) PRIVATE(k)
      !$OMP DO PRIVATE(kkw) SCHEDULE(STATIC)
@@ -1490,22 +1556,22 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
      !$OMP END PARALLEL
 #ifdef TIMING
      t2=MPI_WTIME()
-     t_uvw = t_uvw + (t2-t1) 
+     t_uvw = t_uvw + (t2-t1)
 
      ! -------------- copy v and omega_2 into their planes
      t1=MPI_WTIME()
 #endif
 
-     !$OMP PARALLEL SECTIONS 
+     !$OMP PARALLEL SECTIONS
      !$OMP SECTION
      call dcopy((mx1+1)*(mz1+1)*2,rhgc(0,0,j),1,u2c(0,0),1)
      !$OMP SECTION
      call dcopy((mx1+1)*(mz1+1)*2,ome2c(0,0,j),1,o2c(0,0),1)
-     !$OMP END PARALLEL SECTIONS 
+     !$OMP END PARALLEL SECTIONS
      u2c(0,0) =  vbulk  ! normally this should be zero...(rev934)
 #ifdef TIMING
      t2=MPI_WTIME()
-     t_copy = t_copy + (t2-t1) 
+     t_copy = t_copy + (t2-t1)
 #endif
      ! c c c c c c c c c c cc c c c c c c c c c c cc c c c c c c c c c c c
      !  at this point:
@@ -1517,19 +1583,19 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
      ! ---------------- do spectra some day
      ! ---------------- only if my plane contains spectra information
 
-     if (iuse_LES.eq.1) then
+     if (inonNewtonian.eq.1) then
 
-        call dcopy((mx1+1)*(mz1+1)*2, rhvc(0,0,j),1,vyc(0,0),1)  ! dv/dy 
-     
+        call dcopy((mx1+1)*(mz1+1)*2, rhvc(0,0,j),1,vyc(0,0),1)  ! dv/dy
+
         do k=0,mz1
-           cfac=xgam(k) 
+           cfac=xgam(k)
            do i=0,mx1
               uxc(i,k) = u1c(i,k)*xalp(i)   ! du/dx
               uzc(i,k) = u1c(i,k)*cfac      ! du/dz
            end do
         end do
         do k=0,mz1
-           cfac=xgam(k) 
+           cfac=xgam(k)
            do i=0,mx1
               vxc(i,k) = u2c(i,k)*xalp(i)   ! dv/dx
               vzc(i,k) = u2c(i,k)*cfac      ! dv/dz
@@ -1542,7 +1608,7 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
               wzc(i,k) = u3c(i,k)*cfac         ! dw/dz
            end do
         end do
-        
+
         !wyc = vzc + o1c     ! dw/dy=dv/dz+o1c
         !uyc = vxc - o3c     ! du/dy=dv/dx-o3c
         ! some 2d buffers are redundunt ...
@@ -1551,14 +1617,94 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
         call fourxz(vyc,vy,tmpxzr,1,1)
         call fourxz(wzc,wz,tmpxzr,1,1)
         call fourxz(2.d0*vzc+o1c,vz,tmpxzr,1,1)
-        !call fourxz(wyc,wy,tmpxzr,1,1)
-        !call fourxz(vxc,vx,tmpxzr,1,1)
+        call fourxz(wyc,wy,tmpxzr,1,1)
+        call fourxz(vxc,vx,tmpxzr,1,1)
         call fourxz(2.d0*vxc-o3c,uy,tmpxzr,1,1)
-        !call fourxz(wxc,wx,tmpxzr,1,1)
+        call fourxz(wxc,wx,tmpxzr,1,1)
         call fourxz(uzc+wxc,uz,tmpxzr,1,1)
-        
+
+        do k = 0, mz1
+           do i = 0, mx1
+           ! 対称テンソル D_ij の要素（中央差分/他で得た値）
+              Dxx = ux(i,k)
+              Dyy = vy(i,k)
+              Dzz = wz(i,k)
+              Dxy = 0.5d0 * (vx(i,k) + uy(i,k))
+              Dzx = 0.5d0 * (wx(i,k) + uz(i,k))
+              Dyz = 0.5d0 * (wy(i,k) + vz(i,k))
+              ! 有効せん断速度 gamma_dot
+              gamma_dot = sqrt(2.d0 * (Dxx**2 + Dyy**2 + Dzz**2 + 2.d0*(Dxy**2 + Dzx**2 + Dyz**2)))
+              ! Carreau 粘度
+              mu(i,k) = mu_inf + (mu_0 - mu_inf) * (1.d0 + (lambda * gamma_dot)**2)**((nnf - 1.d0) / 2.d0)
+              ! せん断応力 T_ij
+              Txx(i,k) = 2.d0 * mu(i,k) * Dxx
+              Tyy(i,k) = 2.d0 * mu(i,k) * Dyy
+              Tzz(i,k) = 2.d0 * mu(i,k) * Dzz
+              Txy(i,k) = 2.d0 * mu(i,k) * Dxy
+              Tzx(i,k) = 2.d0 * mu(i,k) * Dzx
+              Tyz(i,k) = 2.d0 * mu(i,k) * Dyz
+           end do
+        end do
+        ! フーリエ変換（物理空間 -> スペクトル空間）
+        call fourxz(uxc, Txx, tmpxzr, -1, 1)
+        call fourxz(uyc, Txy, tmpxzr, -1, 1)
+        call fourxz(uzc, Tzx, tmpxzr, -1, 1)
+        call fourxz(vxc, Tyy, tmpxzr, -1, 1)
+        call fourxz(vyc, Tyz, tmpxzr, -1, 1)
+        call fourxz(vzc, Tzz, tmpxzr, -1, 1)
+
+        txy00(j) = Txy(0,0)
+        tyz00(j) = Tyz(0,0)
+
+        ! スペクトル空間での演算（元のコードのまま）
+        do k = 0, mz1
+           rhvc1(:,k,j) = alp2(:)*uxc(:,k) - 2.d0*xalp(:)*xgam(k)*uzc(:,k) + gam2(k)*vzc(:,k) - (alp2(:)+gam2(k))*vxc(:,k)
+           rhvc2(:,k,j) = xalp(:)*uyc(:,k) + xgam(k)*vyc(:,k)
+           rhgc1(:,k,j) = xalp(:)*xgam(k)*(uxc(:,k) - vzc(:,k)) + (-gam2(k) + alp2(:))*uzc(:,k)
+           rhgc2(:,k,j) = xgam(k)*uyc(:,k) - xalp(:)*vyc(:,k)
+        end do
+
+      end if
+
+      if (iuse_LES.eq.1) then
+        do k=0,mz1
+           cfac=xgam(k)
+           do i=0,mx1
+              uxc(i,k) = u1c(i,k)*xalp(i)   ! du/dx
+              uzc(i,k) = u1c(i,k)*cfac      ! du/dz
+           end do
+        end do
+        do k=0,mz1
+           cfac=xgam(k)
+           do i=0,mx1
+              vxc(i,k) = u2c(i,k)*xalp(i)   ! dv/dx
+              vzc(i,k) = u2c(i,k)*cfac      ! dv/dz
+           end do
+        end do
+        do k=0,mz1
+           cfac=xgam(k)
+           do i=0,mx1
+              wxc(i,k) = u3c(i,k)*xalp(i)      ! dw/dx
+              wzc(i,k) = u3c(i,k)*cfac         ! dw/dz
+           end do
+        end do
+
+        !wyc = vzc + o1c     ! dw/dy=dv/dz+o1c
+        !uyc = vxc - o3c     ! du/dy=dv/dx-o3c
+        ! some 2d buffers are redundunt ...
+
+        call fourxz(uxc,ux,tmpxzr,1,1)
+        call fourxz(vyc,vy,tmpxzr,1,1)
+        call fourxz(wzc,wz,tmpxzr,1,1)
+        call fourxz(2.d0*vzc+o1c,vz,tmpxzr,1,1)
+        call fourxz(wyc,wy,tmpxzr,1,1)
+        call fourxz(vxc,vx,tmpxzr,1,1)
+        call fourxz(2.d0*vxc-o3c,uy,tmpxzr,1,1)
+        call fourxz(wxc,wx,tmpxzr,1,1)
+        call fourxz(uzc+wxc,uz,tmpxzr,1,1)
+
         do k=1,mgalz
-           do i=1,mgalx 
+           do i=1,mgalx
               !SGS(i,k)=dsqrt(2.d0*ux(i,k)**2 + (uy(i,k)+1.d0+vx(i,k))**2 + &
               !               2.d0*vy(i,k)**2 + (uz(i,k)+wx(i,k))**2 +      &
               !               2.d0*wz(i,k)**2 + (vz(i,k)+wy(i,k))**2 )
@@ -1571,22 +1717,22 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
 
         ! rev.1317 dealiasing by 2/3-rule
         wyc=0.d0
-        call fourxz(wyc,Sij2,tmpxzr,-1,1)  
+        call fourxz(wyc,Sij2,tmpxzr,-1,1)
         ! apply 2/3 rule in Fourier space
-        call fourxz(wyc,Sij2,tmpxzr,1,1)  
-        
+        call fourxz(wyc,Sij2,tmpxzr,1,1)
+
         !nu_t=(Cles*Deltag)**2|2*SS|; T=2*nu_t*S
 
-        fac=(Cles*Cles*Deltag*Deltag)         
+        fac=(Cles*Cles*Deltag*Deltag)
         nuSGS=fac*dsqrt(dabs(Sij2))
         if (s.lt.0.d0) then
-           nuSGS=-nuSGS 
+           nuSGS=-nuSGS
            ! rev.1426, Note that Smagorinsky model with constatn C_S is not reversible...
         end if
 
         ! ---------------------------------
         !  do not change this order...
-        ! 
+        !
         wx=ux ! save ux => wx
         ux=2.d0*nuSGS*ux        ! T11
         uy=nuSGS*(uy+s)       ! T12 (uy is dv/dx-o3c)
@@ -1594,9 +1740,9 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
         vx=2.d0*nuSGS*vy         ! T22 (vx)
         vy=nuSGS*vz               ! T23 (vy)
         vz=2.d0*nuSGS*wz          ! T33 (vz)
-        
-        !Tll = (ux + vx + vz)/3.d0*wx 
-        !Tll = wx 
+
+        !Tll = (ux + vx + vz)/3.d0*wx
+        !Tll = wx
 
         ! do k=1,mgalz
         !    do i=1,mgalx
@@ -1610,21 +1756,21 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
         !    end do
         ! end do
 
-        call fourxz(uxc,ux,tmpxzr,-1,1)  
-        call fourxz(uyc,uy,tmpxzr,-1,1) 
+        call fourxz(uxc,ux,tmpxzr,-1,1)
+        call fourxz(uyc,uy,tmpxzr,-1,1)
         call fourxz(uzc,uz,tmpxzr,-1,1)
-        call fourxz(vxc,vx,tmpxzr,-1,1) 
-        call fourxz(vyc,vy,tmpxzr,-1,1)  
+        call fourxz(vxc,vx,tmpxzr,-1,1)
+        call fourxz(vyc,vy,tmpxzr,-1,1)
         call fourxz(vzc,vz,tmpxzr,-1,1)
-        
+
         txy00(j)=uyc(0,0)   ! this includes mean S
-        tyz00(j)=vyc(0,0) 
-        
+        tyz00(j)=vyc(0,0)
+
         !/* rhvc1=-d^2(T11)/dx^2-d^2(T33)/dz^2-2*d^2(T13)/dxdz+(d^2/dx^2+d^2/dz^2)T22 */
         !/* rhvc2= d(T12)/dx+d(T23)/dz                                                */
         !/* rhgc1= -d^2(T33-T11)/dxdz+(d^2/dz^2-d^2/dx^2)*T13                         */
         !/* rhgc2= d(T12)/dz-d(T23)/dx                                                */
-        
+
         do k=0,mz1
            rhvc1(:,k,j) = alp2(:)*uxc(:,k)-2.d0*xalp(:)*xgam(k)*uzc(:,k)+gam2(k)*vzc(:,k)-(alp2(:)+gam2(k))*vxc(:,k)
            rhvc2(:,k,j) = xalp(:)*uyc(:,k)+xgam(k)*vyc(:,k)
@@ -1635,8 +1781,8 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
      end if ! iuse_LES==1
 
      ! -- fourier statistics ! itemperature is not yet implemented...
-     if (ihist.eq.1) call histt(u1r,u2r,u3r,o1r,o2r,o3r, & 
-                               u1c,u2c,u3c,o1c,o2c,o3c,rhvc,tbr,tbc,j,'f')  
+     if (ihist.eq.1) call histt(u1r,u2r,u3r,o1r,o2r,o3r, &
+                               u1c,u2c,u3c,o1c,o2c,o3c,rhvc,tbr,tbc,j,'f')
 #ifdef TIMING
      t1=MPI_WTIME()
 #endif
@@ -1646,24 +1792,26 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
      call fourxz(u3c,u3r,tmpxzr,1,1)         ! w
      call fourxz(o1c,o1r,tmpxzr,1,1)         !omega_1
      call fourxz(o2c,o2r,tmpxzr,1,1)         !omega_2
-     call fourxz(o3c,o3r,tmpxzr,1,1)         !omega_3 
+     call fourxz(o3c,o3r,tmpxzr,1,1)         !omega_3
      if (itemperature.eq.1) then
         call fourxz(tbc,tbr,tmpxzr,1,1)         ! t
      end if
      ! including shear (iadd_mode.eq.1, 4, 5)
 #ifdef TIMING
      t2=MPI_WTIME()
-     t_fourxz = t_fourxz + (t2-t1) 
+     t_fourxz = t_fourxz + (t2-t1)
 #endif
      ! -- physical statistics
      if (ihist.eq.1) call histt(u1r,u2r,u3r,o1r,o2r,o3r, &
-                               u1c,u2c,u3c,o1c,o2c,o3c,rhvc,tbr,tbc,j,'p')  
+                               u1c,u2c,u3c,o1c,o2c,o3c,rhvc,tbr,tbc,j,'p')
 
      if ((rkstep.eq.1).and.(icfl.eq.1)) then
         if (iuse_LES.eq.1) then
            !if (iadd_visc.eq.1) then
-           max_nut  = max(max_nut, maxval(dabs(nuSGS(1:mgalx,1:mgalz))))              
+           max_nut  = max(max_nut, maxval(dabs(nuSGS(1:mgalx,1:mgalz))))
            !end if
+        else if (inonNewtonian.eq.1) then
+           max_nut = max(max_nut, maxval(dabs(mu(1:mgalx,1:mgalz))))
         else
            max_nut = 1.d0/abs(re); ! rev.1426, for negative dissipation...
         end if
@@ -1677,7 +1825,7 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
         end if
      end if
 
-     if (itemperature.eq.1) then 
+     if (itemperature.eq.1) then
         ! computes d(uT)/dx + d(wT)/dz and vT
         ! compute uT,vT,wT
         !$OMP PARALLEL WORKSHARE
@@ -1688,8 +1836,8 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
         call fourxz(uTc,uTr,tmpxzr,-1,1)
         call fourxz(wTc,wTr,tmpxzr,-1,1)
         call fourxz(vTc,vTr,tmpxzr,-1,1)
-        rhtc2(:,:,j) = -vTc  ! -vT        
-        rf0tb(j)     = -vTc(0,0) ! -vT_00        
+        rhtc2(:,:,j) = -vTc  ! -vT
+        rf0tb(j)     = -vTc(0,0) ! -vT_00
      end if
      ! /****************************************************/
      ! /*         computes u X  omega                      */
@@ -1717,10 +1865,10 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
      ! --------------------- u3 : H2 - 2*chi*u
      ! --------------------- u2 : H1 + 2*chi*v  ! not ! + (2*chi - ss)*v
      ! --------------------- back to F-F-T
-     
+
 #ifdef TIMING
      t2=MPI_WTIME()
-     t_uome = t_uome + (t2-t1) 
+     t_uome = t_uome + (t2-t1)
      !                                     ------  back to fourier
      t1=t2
 #endif
@@ -1729,29 +1877,29 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
      call fourxz(u2c,u2r,tmpxzr,-1,1)
      call fourxz(u3c,u3r,tmpxzr,-1,1)
 
-     if (iadd_mode.eq.-1) then 
+     if (iadd_mode.eq.-1) then
         call fourxz(o2c,o2r,tmpxzr,-1,1)         !omega_2
      end if
 #ifdef TIMING
      t2=MPI_WTIME()
-     t_fourxz = t_fourxz + (t2-t1)      
+     t_fourxz = t_fourxz + (t2-t1)
 #endif
      !                                     ------  save 00 mode
      rf0u(j)=u2c(0,0)
      rf0w(j)=u1c(0,0)
 
-#ifdef TIMING 
+#ifdef TIMING
      t1=MPI_WTIME()
-#endif  
+#endif
      !/*   u2 = - dH3/dx + dH1/dz,  o1 = dH1/dx + dH3/dz  */
      !/*   u1 = d^2 H2/dx^2 + d^H2/dz^2                   */
       if (iadd_mode.eq.1) then
          do k=0,mz1
             o1c(:,k) =  xalp(:)*u2c(:,k) + xgam(k)*u1c(:,k)
-            
+
             !u2c(:,k) = -xalp(:)*u1c(:,k) + xgam(k)*u2c(:,k)
             u2c(:,k) = -xalp(:)*(u1c(:,k) + s*y(j)*ome2c(:,k,j)) &  ! add shear
-                 +xgam(k)*u2c(:,k) 
+                 +xgam(k)*u2c(:,k)
             !u1c(:,k) = -u3c(:,k)*(alp2(:)+gam2(k))
             u1c(:,k) = -u3c(:,k)*(alp2(:)+gam2(k)) & ! note: alp2 ... is kx**2
                  -s*ome2c(:,k,j)*xgam(k)-s*y(j)*phic(:,k,j)*xalp(:) ! add shear
@@ -1764,30 +1912,30 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
          do k=0,mz1
             !o1c(:,k) =  xalp(:)*u2c(:,k) + xgam(k)*u1c(:,k)
             ome1c(:,k,j) =  xalp(:)*u2c(:,k) + xgam(k)*u1c(:,k)
-            
+
             !$$$ u2c(:,k) = -xalp(:)*u1c(:,k) + xgam(k)*u2c(:,k)
             !$$$ u1c(:,k) = -u3c(:,k)*(alp2(:)+gam2(k))
             ! (rev.262)
             !u2c(:,k) = -xalp(:)*(u1c(:,k) + s*y(j)*oyc(:,k)) &  ! add shear
-            !     +xgam(k)*(u2c(:,k) - s*vc(:,k)) 
+            !     +xgam(k)*(u2c(:,k) - s*vc(:,k))
             !u1c(:,k) = -u3c(:,k)*(alp2(:)+gam2(k)) & ! note: alp2 ... is kx**2
             !     - s*y(j)*lapvc(:,k)*xalp(:) ! add shear
             ! (rev.263)
             !u2c(:,k) = -xalp(:)*(u1c(:,k) + s*y(j)*ome2c(:,k,j)) &  ! add shear
-            !     +xgam(k)*(u2c(:,k) - s*rhgc(:,k,j)) 
+            !     +xgam(k)*(u2c(:,k) - s*rhgc(:,k,j))
             !u1c(:,k) = -u3c(:,k)*(alp2(:)+gam2(k)) & ! note: alp2 ... is kx**2
             !     - s*y(j)*phic(:,k,j)*xalp(:) ! add shear
             ! (rev.264)
             rhgc(:,k,j) = -xalp(:)*(u1c(:,k) + s*y(j)*ome2c(:,k,j)) &  ! add shear
-                 +xgam(k)*(u2c(:,k) - s*rhgc(:,k,j)) 
+                 +xgam(k)*(u2c(:,k) - s*rhgc(:,k,j))
             rhvc(:,k,j) = -u3c(:,k)*(alp2(:)+gam2(k)) & ! note: alp2 ... is kx**2
                  - s*y(j)*phic(:,k,j)*xalp(:) ! add shear
          enddo
-         
+
       elseif ((iadd_mode.eq.3).or.(iadd_mode.eq.5)) then
          !$OMP PARALLEL DEFAULT(SHARED) PRIVATE(k)
          if (itemperature.eq.1) then
-            ! rhtc (ht) = -(d(uT)/dx + d(wT)/dz) 
+            ! rhtc (ht) = -(d(uT)/dx + d(wT)/dz)
             !$OMP DO SCHEDULE(STATIC)
             do k=0,mz1
                rhtc(:,k,j) = -xalp(:)*uTc(:,k) - xgam(k)*wTc(:,k) - bym*rhgc(:,k,j)
@@ -1797,9 +1945,9 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
          !$OMP DO SCHEDULE(STATIC)
          do k=0,mz1
             ome1c(:,k,j) =  xalp(:)*u2c(:,k) + xgam(k)*u1c(:,k)
-            rhgc(:,k,j)  = -xalp(:)*u1c(:,k) & 
+            rhgc(:,k,j)  = -xalp(:)*u1c(:,k) &
                  + xgam(k)*(u2c(:,k) - s*rhgc(:,k,j))
-            rhvc(:,k,j)  = -u3c(:,k)*(alp2(:)+ gam2(k))  
+            rhvc(:,k,j)  = -u3c(:,k)*(alp2(:)+ gam2(k))
          enddo
          !$OMP END DO
          !$OMP END PARALLEL
@@ -1807,32 +1955,32 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
       elseif (iadd_mode.eq.4) then
          do k=0,mz1
             o1c(:,k) =  xalp(:)*u2c(:,k) + xgam(k)*u1c(:,k)
-            u2c(:,k) = -xalp(:)*u1c(:,k) + xgam(k)*u2c(:,k) 
+            u2c(:,k) = -xalp(:)*u1c(:,k) + xgam(k)*u2c(:,k)
             u1c(:,k) = -u3c(:,k)*(alp2(:)+gam2(k)) & ! note: alp2 ... is kx**2
                  -s*ome2c(:,k,j)*xgam(k) ! add shear
          enddo
          rhvc(:,:,j)=u1c  ! hv
          rhgc(:,:,j)=u2c  ! hg
-         ome1c(:,:,j)=o1c ! dvordy     
+         ome1c(:,:,j)=o1c ! dvordy
 
       elseif (iadd_mode.eq.-1) then
          ! linearized nonlinear term.
          do k=0,mz1
             ! set u1c, u2c, u3c = 0 ??
-            ome1c(:,k,j) = 0.d0 
+            ome1c(:,k,j) = 0.d0
 
-            rhvc(:,k,j)  = 0.d0   
+            rhvc(:,k,j)  = 0.d0
             !rhvc(:,k,j) = -u00(j)*xalp(:)*rhvc(:,k,j) + tmpy(j)*xalp(:)*rhgc(:,k,j)
 
-            rhgc(:,k,j)  = -s*xgam(k)*rhgc(:,k,j) 
+            rhgc(:,k,j)  = -s*xgam(k)*rhgc(:,k,j)
             !rhgc(:,k,j) = -u00(j)*xalp(:)*o2c(:,k) + xgam(k)*( (rf0u(j) - s)*rhgc(:,k,j))
-           
+
          enddo
 
       endif
 #ifdef TIMING
      t2=MPI_WTIME()
-     t_nl = t_nl + (t2-t1)        
+     t_nl = t_nl + (t2-t1)
      t1= t2
 #endif
      ! --------------------- copy planes into outputs
@@ -1841,7 +1989,7 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
      !ome1c(:,:,j)=o1c ! dvordy
 #ifdef TIMING
      t2=MPI_WTIME()
-     t_copy = t_copy + (t2-t1) 
+     t_copy = t_copy + (t2-t1)
 #endif
   ENDDO   ! -------------------------- finishes the y loop
 
@@ -1852,7 +2000,7 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
   !  u2: -dH3/dx + dH1/dz
   !  u1: d^2H2/dx^2 + d^2H2/dz^2
   ! c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c c
-  
+
   ! -------------------- computes Deltat and write stats
   if ((rkstep.eq.1).and.(icfl.eq.1)) then
      ! update Deltat
@@ -1887,31 +2035,34 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
                           2.d0*nutmax*dt*max(pi*pi/dx/dx , &
                                         6.25d0/dy/dy, &
                                         pi*pi/dz/dz))
-
            else if (iadd_visc.eq.0) then
               CFLv = 2.d0*nutmax*dt*max(pi*pi/dx/dx , &
                                    6.25d0/dy/dy, &
                                    pi*pi/dz/dz)
            end if
+        else if (inonNewtonian.eq.1) then
+           CFLv = 2.d0*nutmax*dt*max(pi*pi/dx/dx , &
+                                     6.25d0/dy/dy, &
+                                     pi*pi/dz/dz)
         else ! normal run without any model
            CFLv = (1.d0/re)*dt*max(pi*pi/dx/dx, &
                                    6.25d0/dy/dy, &
                                    pi*pi/dz/dz)
         end if
-        if ((myid.eq.0).and.(iwrote.eq.0))  then 
+        if ((myid.eq.0).and.(iwrote.eq.0))  then
           write(*,*) ' fixed dt, = ',dt,' CFL = ', CFL, CFLv
           write(*,*) ' fixed dt, = ',dt,' CFLt = ', CFLt, CFLk
         end if
         iwrote=1
      else
         if ((iadd_mode.ge.3).and.(iadd_mode.le.5)) then
-           dt = 1d0/max(umax(0)*cflx,umax(2)*cfly,umax(3)*cflz) 
+           dt = 1d0/max(umax(0)*cflx,umax(2)*cfly,umax(3)*cflz)
            ! use uprim_max
         else
            dt = 1d0/max(umax(1)*cflx,umax(2)*cfly,umax(3)*cflz)
         endif
         ! for explicit
-        ! dt = 1d0/max(umax(1)*cflx,umax(2)*cfly,umax(3)*cflz,cflvv) 
+        ! dt = 1d0/max(umax(1)*cflx,umax(2)*cfly,umax(3)*cflz,cflvv)
         if (iuse_LES.eq.1) then
            if (iadd_visc.eq.1) then
               cflvv = max(abs(1.d0/re)/CFL*max(pi*pi/dx/dx , &
@@ -1920,11 +2071,15 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
                           nutmax/CFL*max(pi*pi/dx/dx , &
                                         6.25d0/dy/dy, &
                                         pi*pi/dz/dz))
-           else 
+           else
               cflvv = nutmax/CFL*max(pi*pi/dx/dx , &
                                    6.25d0/dy/dy, &
                                    pi*pi/dz/dz)
-           end if        
+           end if
+        else if (inonNewtonian.eq.1) then
+           cflvv = nutmax/CFL*max(pi*pi/dx/dx , &
+                                  6.25d0/dy/dy, &
+                                  pi*pi/dz/dz)
         end if
         CFLv = CFL*cflvv*dt
         if (itemperature.eq.1) then
@@ -1991,7 +2146,7 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
      ! idump_mode==1 for creating a pure periodic field and stop
      ! this can be used for arnoldi or newton algorithm
      if ((time+Deltat).gt.dumptime) then
-        
+
         Deltat = abs(dumptime - time)
         if (itemperature.eq.1) then
            dtrv=Re/Deltat  ! bug fixed at rev.1724
@@ -2002,11 +2157,11 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
         if (dumptime.gt.(etime-tiny)) istop = 1
         dumptime = dumptime + dtimag ! update next dumptime
 
-        idump = 1       
+        idump = 1
         if (myid.eq.0) write(*,*) '  dump file at next step, idump=', idump
 
      elseif ((time+Deltat).gt.etime) then
-        
+
         Deltat = abs(etime - time)
         if (itemperature.eq.1) then
            dtrv=Re/Deltat ! bug fixed at rev.1724
@@ -2015,11 +2170,11 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
            dtr=Re/Deltat
         end if
         istop = 1 ! file dump + stop
-        
+
      end if
   endif
 
-  ! write screen output 
+  ! write screen output
   if (ihist.eq.1) call histt(u1r,u2r,u3r,o1r,o2r,o3r, &
                             u1c,u2c,u3c,o1c,o2c,o3c,rhvc,tbr,tbc,0,'w')
 #ifdef TIMING
@@ -2028,7 +2183,7 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
   t2 = MPI_WTIME()
   t_waiting=t_waiting + t2-t1
   t1 = t2
-#endif     
+#endif
   !  ------  collect the 00 modes everywhere (not slow??)
   !  ------  [rev.406]
   !do pproc=0,numerop-1
@@ -2037,11 +2192,11 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
   !      mmyr=jend(iproc)-jbeg(iproc)+1
   !      call MPI_SENDRECV(rf0u(jb),mmy,MPI_REAL8,iproc,0,rf0u(jbeg(iproc)), &
   !           mmyr,MPI_REAL8,iproc,0,MPI_COMM_WORLD,istat,ierr)
-  !      
+  !
   !      call MPI_SENDRECV(rf0w(jb),mmy,MPI_REAL8,iproc,0,rf0w(jbeg(iproc)), &
   !           mmyr,MPI_REAL8,iproc,0,MPI_COMM_WORLD,istat,ierr)
   !   endif
-  ! 
+  !
   !enddo
   ! --- (rev.373) replaced by ALLREDUCE (faster than above??)
   tmpy=0.d0 ! do not forget this ! memcopy
@@ -2053,23 +2208,33 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
   !tmpy(jb:je)=rf0w(jb:je)
   call dcopy(je-jb+1,rf0w(jb),1,tmpy(jb),1)
   call MPI_ALLREDUCE(tmpy,rf0w,my,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
-  ! 
+  !
   if (iuse_LES.eq.1) then
-     tmpy=0.d0 
+     tmpy=0.d0
      call dcopy(je-jb+1,txy00(jb),1,tmpy(jb),1)
      call MPI_ALLREDUCE(tmpy,txy00,my,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
      call MPI_BARRIER(MPI_COMM_WORLD,ierr)
-     tmpy=0.d0 
+     tmpy=0.d0
      call dcopy(je-jb+1,tyz00(jb),1,tmpy(jb),1)
      call MPI_ALLREDUCE(tmpy,tyz00,my,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
      call MPI_BARRIER(MPI_COMM_WORLD,ierr)
   end if ! iuse_LES==1
+  if (inonNewtonian.eq.1) then
+     tmpy=0.d0
+     call dcopy(je-jb+1,txy00(jb),1,tmpy(jb),1)
+     call MPI_ALLREDUCE(tmpy,txy00,my,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
+     call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+     tmpy=0.d0
+     call dcopy(je-jb+1,tyz00(jb),1,tmpy(jb),1)
+     call MPI_ALLREDUCE(tmpy,tyz00,my,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
+     call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+  end if ! inonNewtonian==1
 
   if (itemperature.eq.1) then
-     tmpy=0.d0 
+     tmpy=0.d0
      call dcopy(je-jb+1,rf0tb(jb),1,tmpy(jb),1)
      call MPI_ALLREDUCE(tmpy,rf0tb,my,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
-     call MPI_BARRIER(MPI_COMM_WORLD,ierr)     
+     call MPI_BARRIER(MPI_COMM_WORLD,ierr)
   end if
 
 #ifdef TIMING
@@ -2083,16 +2248,16 @@ end subroutine hvhgt
 !c      hist, the diagnostics
 !c      flag = 'f',  things that can be done in fourier, dv is for eps
 !c      flag = 'p',                          in physical
-!c      flag = 'w',  write screen output (energy etc...) 
+!c      flag = 'w',  write screen output (energy etc...)
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-subroutine histt(u1r,u2r,u3r,o1r,o2r,o3r,u1c,u2c,u3c,o1c,o2c,o3c,dv,& 
+subroutine histt(u1r,u2r,u3r,o1r,o2r,o3r,u1c,u2c,u3c,o1c,o2c,o3c,dv,&
      &           tbr,tbc,j,flag)
 
   use ctes
   use statistics
   use running
   use bcs
-  use LES,only:nutmax,Cles,nuSGS,Sij2,Tll,txy00, iuse_LES, iadd_visc
+  use LES!,only:nutmax,Cles,nuSGS,Sij2,Tll,txy00, iuse_LES, iadd_visc
 
   implicit none
   include "mpif.h"
@@ -2107,7 +2272,7 @@ subroutine histt(u1r,u2r,u3r,o1r,o2r,o3r,u1c,u2c,u3c,o1c,o2c,o3c,dv,&
   complex(8) cc
   character*1 flag
   real*8      nufac, nuty, trTij, disp_eddy
- 
+
 !---------- 6 * (mgalx+2) * mgalz buffer planes, THESE PLANES SHARE STORAGE !!
   real(8),dimension(mgalx+2,mgalz) :: u1r, u2r, u3r, o1r, o2r, o3r, tbr
   complex(8),dimension(0:mx1,0:mz1) :: u1c,u2c, u3c, o1c, o2c, o3c, tbc
@@ -2117,14 +2282,14 @@ subroutine histt(u1r,u2r,u3r,o1r,o2r,o3r,u1c,u2c,u3c,o1c,o2c,o3c,dv,&
 
      !u1c(0,0) = u1c(0,0) + dcmplx(u00cut,0d0)
      !
-     !if ((iadd_mode.eq.2).or.(iadd_mode.eq.3)) then 
+     !if ((iadd_mode.eq.2).or.(iadd_mode.eq.3)) then
      !   o3c(0,0) = o3c(0,0) - s
      !end if
      !u1c(0,0) = u1c(0,0) + s*y(j)
 
      ! --- intensities ---
 
-     up = sum(u1c(0,:)*dconjg(u1c(0,:))) & 
+     up = sum(u1c(0,:)*dconjg(u1c(0,:))) &
           + 2d0*sum(u1c(1:mx1,:)*dconjg(u1c(1:mx1,:)))
      vp = sum(u2c(0,:)*dconjg(u2c(0,:))) &
           + 2d0*sum(u2c(1:mx1,:)*dconjg(u2c(1:mx1,:)))
@@ -2135,10 +2300,10 @@ subroutine histt(u1r,u2r,u3r,o1r,o2r,o3r,u1c,u2c,u3c,o1c,o2c,o3c,dv,&
           + 2d0*sum(u1c(1:mx1,:)*dconjg(u2c(1:mx1,:)))
      uwr = sum(u1c(0,:)*dconjg(u3c(0,:))) &
           + 2d0*sum(u1c(1:mx1,:)*dconjg(u3c(1:mx1,:)))
-     vwr = sum(u2c(0,:)*dconjg(u3c(0,:))) & 
+     vwr = sum(u2c(0,:)*dconjg(u3c(0,:))) &
           + 2d0*sum(u2c(1:mx1,:)*dconjg(u3c(1:mx1,:)))
 
-     o1p = sum(o1c(0,:)*dconjg(o1c(0,:))) & 
+     o1p = sum(o1c(0,:)*dconjg(o1c(0,:))) &
           + 2d0*sum(o1c(1:mx1,:)*dconjg(o1c(1:mx1,:)))
      o2p = sum(o2c(0,:)*dconjg(o2c(0,:))) &
           + 2d0*sum(o2c(1:mx1,:)*dconjg(o2c(1:mx1,:)))
@@ -2149,13 +2314,13 @@ subroutine histt(u1r,u2r,u3r,o1r,o2r,o3r,u1c,u2c,u3c,o1c,o2c,o3c,dv,&
           + 2d0*sum(o1c(1:mx1,:)*dconjg(o2c(1:mx1,:)))
 
      if (itemperature.eq.1) then
-        tbp = sum(tbc(0,:)*dconjg(tbc(0,:))) & 
+        tbp = sum(tbc(0,:)*dconjg(tbc(0,:))) &
              + 2d0*sum(tbc(1:mx1,:)*dconjg(tbc(1:mx1,:)))
         utbp = sum(u1c(0,:)*dconjg(tbc(0,:))) &
              + 2d0*sum(u1c(1:mx1,:)*dconjg(tbc(1:mx1,:)))
         vtbp = sum(u2c(0,:)*dconjg(tbc(0,:))) &
              + 2d0*sum(u2c(1:mx1,:)*dconjg(tbc(1:mx1,:)))
-        wtbp = sum(u3c(0,:)*dconjg(tbc(0,:))) & 
+        wtbp = sum(u3c(0,:)*dconjg(tbc(0,:))) &
              + 2d0*sum(u3c(1:mx1,:)*dconjg(tbc(1:mx1,:)))
      end if
 
@@ -2200,10 +2365,10 @@ subroutine histt(u1r,u2r,u3r,o1r,o2r,o3r,u1c,u2c,u3c,o1c,o2c,o3c,dv,&
 
         tstats(1,j) = tstats(1,j) + dreal(tbc(0,0))*Deltat
         tstats(2,j) = tstats(2,j) + tbp*Deltat
-        tstats(3,j) = tstats(3,j) + utbp*Deltat 
+        tstats(3,j) = tstats(3,j) + utbp*Deltat
         tstats(4,j) = tstats(4,j) + vtbp*Deltat
         tstats(5,j) = tstats(5,j) + wtbp*Deltat
-        
+
         enert(1) = enert(1) + tbp
         enert(2) = enert(2) + utbp
         enert(3) = enert(3) + vtbp
@@ -2235,48 +2400,49 @@ subroutine histt(u1r,u2r,u3r,o1r,o2r,o3r,u1c,u2c,u3c,o1c,o2c,o3c,dv,&
            nufac=0.d0
         end if
         nuty = sum(nuSGS(1:mgalx,1:mgalz))/dfloat(mgalx*mgalz)
-        
+
         ! Total input using eddy viscosity??
-        ! Pk = - (o3c(0,0))*(-uvr) + nuty*o3c(0,0)*o3c(0,0) & 
+        ! Pk = - (o3c(0,0))*(-uvr) + nuty*o3c(0,0)*o3c(0,0) &
         !      + (nufac)*(o3c(0,0)*o3c(0,0)) ! this is not perfect
         !
-        Pk = - o3c(0,0)*(-uvr + txy00(j) )  & 
-             + (nufac)*(o3c(0,0)*o3c(0,0)) ! fixed at rev.1628.       
-
+        Pk = - o3c(0,0)*(-uvr + txy00(j) )  &
+             + (nufac)*(o3c(0,0)*o3c(0,0)) ! fixed at rev.1628.
+     else if (inonNewtonian.eq.1) then
+        Pk = - o3c(0,0)*(-uvr + txy00(j))
      else
-        Pk = - (o3c(0,0))*(-uvr) + (o3c(0,0))*(o3c(0,0))*(1.d0/Re) 
+        Pk = - (o3c(0,0))*(-uvr) + (o3c(0,0))*(o3c(0,0))*(1.d0/Re)
      end if
      ! total energy input, - <dudy>(y) <uv>(y)
 
      stats(20,j) =stats(20,j) + Pk
-     stats(21,j) =stats(21,j) + o12p   
+     stats(21,j) =stats(21,j) + o12p
      if (iuse_LES.eq.1) then
-        stats(22,j) =stats(22,j) + nuty   
+        stats(22,j) =stats(22,j) + nuty
      end if
      ! for sta4
      stats2(20,j)=stats2(20,j) + Pk*Deltat
-     stats2(21,j)=stats2(21,j) + o12p*Deltat   
+     stats2(21,j)=stats2(21,j) + o12p*Deltat
      if (iuse_LES.eq.1) then
-        stats2(22,j) =stats2(22,j) + nuty*Deltat   
+        stats2(22,j) =stats2(22,j) + nuty*Deltat
      end if
 
      ener2(1) = ener2(1) + Pk
      ener2(2) = ener2(2) + o12p
      if (iuse_LES.eq.1) then
-        ener2(3) = ener2(3) + nuty 
+        ener2(3) = ener2(3) + nuty
      end if
-     ! ------------ dissipation  --- 2*<Sij*Sij>_{00} 
-     ! eps == sum(Sij2(1:mgalx,1:mgalz))/dfloat(mgalx*mgalz) ! checked.. 
+     ! ------------ dissipation  --- 2*<Sij*Sij>_{00}
+     ! eps == sum(Sij2(1:mgalx,1:mgalz))/dfloat(mgalx*mgalz) ! checked..
      ! --------------------
-     eps = sum(gam2*( u1c(0,:)*dconjg(u1c(0,:)) & 
-                     +u2c(0,:)*dconjg(u2c(0,:)) & 
-                     +u3c(0,:)*dconjg(u3c(0,:)) )) & 
+     eps = sum(gam2*( u1c(0,:)*dconjg(u1c(0,:)) &
+                     +u2c(0,:)*dconjg(u2c(0,:)) &
+                     +u3c(0,:)*dconjg(u3c(0,:)) )) &
           +sum( dv(0,:,j)*dconjg(dv(0,:,j)) + o3c(0,:)*dconjg(o3c(0,:)) )
      do k=0,mz1
         eps = eps + 2.d0*sum( (alp2(1:mx1)+gam2(k)) &
-                             *( u1c(1:mx1,k)*dconjg(u1c(1:mx1,k)) & 
+                             *( u1c(1:mx1,k)*dconjg(u1c(1:mx1,k)) &
                                +u2c(1:mx1,k)*dconjg(u2c(1:mx1,k)) &
-                               +u3c(1:mx1,k)*dconjg(u3c(1:mx1,k)) ) & 
+                               +u3c(1:mx1,k)*dconjg(u3c(1:mx1,k)) ) &
                              +dv(1:mx1,k,j)*dconjg(dv(1:mx1,k,j)))
         cc = o1c(0,k) + xgam(k)*u2c(0,k)
         eps = eps + cc*dconjg(cc)
@@ -2287,25 +2453,25 @@ subroutine histt(u1r,u2r,u3r,o1r,o2r,o3r,u1c,u2c,u3c,o1c,o2c,o3c,dv,&
            eps = eps + 2d0*cc*dconjg(cc)
         enddo
      enddo
-     stats(16,j) = stats(16,j) + eps   
+     stats(16,j) = stats(16,j) + eps
      ! for sta4
-     stats2(16,j) = stats2(16,j) + eps*Deltat   
+     stats2(16,j) = stats2(16,j) + eps*Deltat
 
      ener(10) = ener(10) + eps
      if (iuse_LES.eq.1) then
         ! the energy transfer rate to subgrid scale (dissipation using eddy viscosity)
-        disp_eddy = sum(nuSGS(1:mgalx,1:mgalz)*Sij2(1:mgalx,1:mgalz))/dfloat(mgalx*mgalz) 
+        disp_eddy = sum(nuSGS(1:mgalx,1:mgalz)*Sij2(1:mgalx,1:mgalz))/dfloat(mgalx*mgalz)
         ener2(4) = ener2(4) + disp_eddy
         stats(23,j) = stats(23,j) + disp_eddy
         stats2(23,j) = stats2(23,j) + disp_eddy*Deltat
         if (nstat.lt.23) then
-           write(*,*) 'check nstat, stop' 
+           write(*,*) 'check nstat, stop'
            stop
         end if
      end if
 
-     if (nner2.lt.4) then 
-        write(*,*) 'set correct nner2, stop' 
+     if (nner2.lt.4) then
+        write(*,*) 'set correct nner2, stop'
         stop
      end if
 
@@ -2384,7 +2550,7 @@ subroutine histt(u1r,u2r,u3r,o1r,o2r,o3r,u1c,u2c,u3c,o1c,o2c,o3c,dv,&
      end if ! /* if noescru == 0 */
 
      !u1c(0,0) = u1c(0,0) - dcmplx(u00cut,0d0)
-     !if ((iadd_mode.eq.2).or.(iadd_mode.eq.3)) then 
+     !if ((iadd_mode.eq.2).or.(iadd_mode.eq.3)) then
      !   o3c(0,0) = o3c(0,0) + s
      !   ! remove mean shear again
      !end if
@@ -2392,19 +2558,19 @@ subroutine histt(u1r,u2r,u3r,o1r,o2r,o3r,u1c,u2c,u3c,o1c,o2c,o3c,dv,&
 
   elseif (flag.eq.'p') then         ! --- things to be computed in physical
 
-     ! u1r = u1r + u00cut 
-     ! Note: u00cut used be introduced for reducing the absolute value 
+     ! u1r = u1r + u00cut
+     ! Note: u00cut used be introduced for reducing the absolute value
      !       of mean flow, which contributes to CFL condition
      !
      !u1r = u1r  + s*y(j) ! rev.625 do not add for statistics
 
-     stats(17,j) = stats(17,j) &  
+     stats(17,j) = stats(17,j) &
           + sum(u2r(1:mgalx,1:mgalz)*u1r(1:mgalx,1:mgalz)**2)   ! -- vuu
      stats(18,j) = stats(18,j) &
           + sum(u2r(1:mgalx,1:mgalz)*u3r(1:mgalx,1:mgalz)**2)   ! -- vww
      stats(19,j) = stats(19,j) + sum(u2r(1:mgalx,1:mgalz)**3)   ! -- vvv
 
-     stats2(17,j) = stats2(17,j) &  
+     stats2(17,j) = stats2(17,j) &
           + sum(u2r(1:mgalx,1:mgalz)*u1r(1:mgalx,1:mgalz)**2)*Deltat   ! -- vuu
      stats2(18,j) = stats2(18,j) &
           + sum(u2r(1:mgalx,1:mgalz)*u3r(1:mgalx,1:mgalz)**2)*Deltat   ! -- vww
@@ -2413,17 +2579,17 @@ subroutine histt(u1r,u2r,u3r,o1r,o2r,o3r,u1c,u2c,u3c,o1c,o2c,o3c,dv,&
      !if (iuse_LES.eq.1) then
      !   !! The trace of Tij may need to be added...but they are small
      !
-     !   trTij = sum(Tll(1:mgalx,1:mgalz)*(u1r(1:mgalx,1:mgalz) + u2r(1:mgalx,1:mgalz) + u3r(1:mgalx,1:mgalz))/3.d0)/dfloat(mgalx*mgalz) 
+     !   trTij = sum(Tll(1:mgalx,1:mgalz)*(u1r(1:mgalx,1:mgalz) + u2r(1:mgalx,1:mgalz) + u3r(1:mgalx,1:mgalz))/3.d0)/dfloat(mgalx*mgalz)
      !   Pk = Pk - trTij
      !   stats(20,j) =stats(20,j) - trTij
      !   ener2(1) = ener2(1) - trTij
      !end if
 
      !u1r = u1r - u00cut
-     !u1r = u1r - s*y(j) 
+     !u1r = u1r - s*y(j)
 
      ! moved to out of hist(...) to use icfl = 1
-     !umax(1) = max(umax(1),maxval(dabs(u1r(1:mgalx,1:mgalz)+s*y(j)))) 
+     !umax(1) = max(umax(1),maxval(dabs(u1r(1:mgalx,1:mgalz)+s*y(j))))
      !umax(2) = max(umax(2),maxval(dabs(u2r(1:mgalx,1:mgalz))))
      !umax(3) = max(umax(3),maxval(dabs(u3r(1:mgalx,1:mgalz))))
 
@@ -2451,15 +2617,15 @@ subroutine histt(u1r,u2r,u3r,o1r,o2r,o3r,u1c,u2c,u3c,o1c,o2c,o3c,dv,&
 
      if (myid.eq.0) then
         if (nocf.eq.0) then
-           !write(iocf ,'(1X,F14.6,16(1X,E14.6),2(1X,F14.6),5(1X,E14.6))') & 
+           !write(iocf ,'(1X,F14.6,16(1X,E14.6),2(1X,F14.6),5(1X,E14.6))') &
            !     time,Deltat,uner,CFL,CFLv,umax(1:3),xoffb,xofft,umax(0),uner2
-           write(iocfb) time,Deltat,uner,CFL,CFLv,umax(1:3),xoffb,xofft,umax(0),uner2, & 
+           write(iocfb) time,Deltat,uner,CFL,CFLv,umax(1:3),xoffb,xofft,umax(0),uner2, &
                 &  tbmax,tner
-           write(iotfb) time,Deltat,tbmax,tner 
+           write(iotfb) time,Deltat,tbmax,tner
            if (iskip_screenout.eq.0) then
-              write(* ,'(a,1X,I6,F14.6,16(1X,E14.6),2(1X,F14.6),5(1X,E14.6))') & 
+              write(* ,'(a,1X,I6,F14.6,16(1X,E14.6),2(1X,F14.6),5(1X,E14.6))') &
                    'UNER:',istep,time,Deltat, &
-                   uner,CFL,CFLv,umax(1:3),xoffb,xofft,umax(0),uner2 
+                   uner,CFL,CFLv,umax(1:3),xoffb,xofft,umax(0),uner2
               if (itemperature.eq.1) then
                  write(*,'(a,1X,I6,F14.6, 5(1X,E14.6))') &
                       'TNER:',istep,time,tbmax,tner
@@ -2488,8 +2654,8 @@ subroutine histt(u1r,u2r,u3r,o1r,o2r,o3r,u1c,u2c,u3c,o1c,o2c,o3c,dv,&
         !call MPI_FINALIZE(ierr)
         !if (time.gt.etime) stop ! for arnoldi or newton algorithm
      endif
-     
-     ihist  = 0 
+
+     ihist  = 0
 
   endif
 

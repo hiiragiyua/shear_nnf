@@ -8,7 +8,7 @@ module ctes
   integer mgy,my23,ny,ny1,ny2
 
   ! ---- coordinates and parameters ---------
-  real(8) Re,alp,gam,Ly,s,chi,dx,dz,dy,Lx,Lz,Lx2,Lz2 
+  real(8) Re,alp,gam,Ly,s,chi,dx,dz,dy,Lx,Lz,Lx2,Lz2
   real(8) CFL,CFLv,cflx,cfly,cflz,cflvv,pmesp,uprim,umaxl(0:3),umax(0:3)
   real(8) cflkk,CFLt,CFLk,CFLb,tbmaxl,tbmax
   real(8) vbulk, xforce, zforce, force_roll
@@ -29,8 +29,8 @@ module ctes
   integer  numerop,myid,jb,je,kb,ke,mmy,mmz,blockingik2ki,blockingki2ik
   integer  mgalzp,myp,mzp,mgalz1p,nxymax,buffsize
   integer,dimension(:),allocatable :: jbeg,jend,kbeg,kend
-  !integer, allocatable:: scount(:),sdispl(:),rcount(:),rdispl(:) 
-  ! Note: these array affects myslice (rev.400) 
+  !integer, allocatable:: scount(:),sdispl(:),rcount(:),rdispl(:)
+  ! Note: these array affects myslice (rev.400)
 
   integer,dimension(:),allocatable :: myslice
 
@@ -39,14 +39,14 @@ module ctes
   complex(8) cii
   real(8) tiny,big
   parameter(tiny = 1.d-13)
-  parameter(big = 1.d10) 
-  
+  parameter(big = 1.d10)
+
   integer irev,nopt,nparams
-  parameter(irev=1742)  ! revision information. 
+  parameter(irev=1742)  ! revision information.
   integer ireve
 
   parameter(maxParams=100)  ! the max. number of options
-  !parameter(nopt=9) ! the number of switch options 
+  !parameter(nopt=9) ! the number of switch options
   !parameter(nparams=13) ! the number of input parameters
 
 end module ctes
@@ -60,12 +60,13 @@ module running
   real(8)  dtr, dump2timep, dump2tint
   real(8)  dtrv, dtrk ! itemperature
   real(8) sym_shiftx,sym_shiftz
+  real(8)mu_0, mu_inf, lambda, nnf ! inonNewtonian
 
   integer nimag,nstep,nhist,ihist,icfl,ifix_dt,iwrote,idump_mode,iydealiasing
-  integer iget_cfy ! to dump cfy 
+  integer iget_cfy ! to dump cfy
   integer istart,istep,iend,ifatal,istop,idump,noescru,nohist,nocf,iskip_screenout
   ! some option for post processing
-  integer explicit, iadd_force, iadd_mode, iadd_sym, iadd_damping, itemperature, init_temp
+  integer explicit, iadd_force, iadd_mode, iadd_sym, iadd_damping, itemperature, init_temp,inonNewtonian
   integer explicite, iadd_forcee, iadd_modee, iadd_syme, iadd_dampinge, itemperaturee
   integer iuse_newton,iread_footer, inorm
   integer iread_hdf5, iwrite_hdf5
@@ -85,10 +86,10 @@ module timer
   real(8) commtimer, transtimer, totaltimer
   real(8) iter_time, comm_time, wtime
   real(8) addsymtimer
-  ! 
+  !
   real(8) t_derivyc, t_add_shear, t_uvw, t_copy, t_fourxz, &
-        t_uome, t_nl, t_hvhg, t1, t2, t_hvhg0, t_otra, t_waiting  
- 
+        t_uome, t_nl, t_hvhg, t1, t2, t_hvhg0, t_otra, t_waiting
+
 end module timer
 
 module statistics
@@ -131,31 +132,31 @@ end module bcs
 
 module rfttmp
 ! ****************************************************************
-!   fftw3.3.2 tmp arrays and plans for rft 
-! ****************************************************************  
+!   fftw3.3.2 tmp arrays and plans for rft
+! ****************************************************************
 
   real*8,allocatable:: fdum(:),bdum(:)
   real*8  dnf,dnb
   integer*4  nf,nb
   integer*8  planf,planb
-  
+
 end module rfttmp
 
 module cfttmp
 ! ****************************************************************
-!   fftw3.3.2 tmp arrays and plans for cft 
-! 
-! ****************************************************************  
+!   fftw3.3.2 tmp arrays and plans for cft
+!
+! ****************************************************************
 
   complex*16,allocatable:: fdum(:),bdum(:)
-  real*8     dnf,dnb 
+  real*8     dnf,dnb
   integer  nf,nb
   integer*8  planf,planb
 
 end module cfttmp
 
 module ffttmp
-  ! this is for threaded 2D fft (fou3D_thread.f) 
+  ! this is for threaded 2D fft (fou3D_thread.f)
   complex*16,allocatable:: fdum(:,:),bdum(:,:)
   real*8     norm
   integer*8  planf,planb
@@ -166,21 +167,21 @@ end module ffttmp
 
 ! ****************************************************************
 !   fftw3.3.2 tmp arrays and plans for cft in y-dir
-! 
-! ****************************************************************  
+!
+! ****************************************************************
 module rftytmp
 
   real*8,allocatable:: fdum(:),bdum(:)
   real*8  dnf,dnb
   integer*4  nf,nb
   integer*8  planf,planb
-  
+
 end module rftytmp
 
 module cftytmp
 
   complex*16,allocatable:: fdum(:),bdum(:)
-  real*8     dnf,dnb 
+  real*8     dnf,dnb
   integer  nf,nb
   integer*8  planf,planb
 
@@ -192,8 +193,8 @@ module addsym
   ! ***
   complex*16,dimension(:,:,:),allocatable:: vors,phis
   real*8,dimension(:),allocatable :: u00s,w00s
-  integer,dimension(:),allocatable :: sgcount,rgcount,rgdispl 
-  
+  integer,dimension(:),allocatable :: sgcount,rgcount,rgdispl
+
 end module addsym
 
 module LES
@@ -201,6 +202,7 @@ module LES
   real*8      Cles,Csy,Deltag,max_nut,nutmax,cutoffx,cutoffz,LESflt(3)
   real*8      Clese,Deltage,cutoffxe,cutoffze,LESflte(3)
   real*8      CsDeltag_fix
+  real*8      gamma_dot,Dxx,Dyy,Dzz,Dxy,Dyz,Dzx
   ! tmp 2d plane array
   real*8,     allocatable:: ux(:,:),uy(:,:),uz(:,:),vx(:,:),vy(:,:), &
                             vz(:,:),wx(:,:),wy(:,:),wz(:,:)
@@ -210,16 +212,18 @@ module LES
                             u13r(:,:),u23r(:,:)
   complex*16, allocatable:: u11c(:,:),u22c(:,:),u33c(:,:),u12c(:,:), &
                             u13c(:,:),u23c(:,:)
-  real*8,     allocatable:: nuSGS(:,:),Sij2(:,:),Tll(:,:),Cast(:,:)
+  real*8,     allocatable:: nuSGS(:,:),Sij2(:,:),Tll(:,:),Cast(:,:),mu(:,:)
   integer,    allocatable:: cutoff(:,:)
+  real*8,     allocatable:: Txx(:,:),Txy(:,:),Tzx(:,:),Tyy(:,:),Tyz(:,:),Tzz(:,:)
 
   ! SGS is mut.
   real*8,dimension(:,:,:),allocatable:: nut
   real*8,dimension(:),allocatable:: txy00,tyz00
   ! buffsize arrays for change...
-  !real*8,dimension(:),allocatable:: rhvc1, rhvc2, rhgc1, rhgc2  
+  !real*8,dimension(:),allocatable:: rhvc1, rhvc2, rhgc1, rhgc2
 
 end module LES
+
 
 module temp
   !integer itemperature
@@ -234,7 +238,7 @@ end module temp
 
 module eft
   ! double-double precision
-  integer, parameter :: nk=8 
+  integer, parameter :: nk=8
   real(nk), parameter :: bfactor=2**27+1 ! 64 bit
   !real(nk), parameter :: bfactor=2.d0**32.d0+1.d0 ! extende 80 bit
 contains
@@ -243,7 +247,7 @@ contains
     implicit none
     real(nk) a,b,c,d,x,y
     c=0d0; d=a; ! in case that a and x share the memory
-    x=a+b; c=x-a; 
+    x=a+b; c=x-a;
     y=(d-(x-c)) + (b-c);
   end subroutine TwoSum
 
@@ -264,9 +268,9 @@ contains
     y=aL*bL-(((x-aH*bH)-aL*bH)-aH*bL);
   end subroutine TwoProduct
 
-  subroutine VecSum(n,p) 
+  subroutine VecSum(n,p)
     ! p(n) is the sum, not self-preservative
-    implicit none 
+    implicit none
     integer i,n
     real(nk) p(n)
     do i=2,n
@@ -285,13 +289,13 @@ contains
     do l=1,K-1
        call VecSum(n,p)
     end do
-    
+
     res=0.d0
     do i=1,n-1
        res = res + p(i)
-    end do    
+    end do
     res = p(n)+res
-    
+
   end subroutine SumK
 
   subroutine DotK(n,x,y,res)
@@ -324,14 +328,14 @@ contains
     real(nk) p(n)
     real(nk), allocatable :: q(:),s(:),tmp(:)
     real(nk) res
-    
+
     !allocate(q(n),s(n),tmp(n))
     !tmp(1)=p(1); s(1)=0.d0;
     !do i=2,n
     !   call TwoSum(tmp(i-1),p(i),tmp(i),q(i))
     !   s(i)=s(i-1)+q(i)
     !end do
-    !res=tmp(n)+s(n); 
+    !res=tmp(n)+s(n);
     !deallocate(q,s,tmp)
     ! this is VecSum
     do i=2,n
@@ -374,7 +378,7 @@ contains
     end do
     res=(p+s)
   end subroutine Dot2
-  
+
   subroutine Dot2cmplx(n,x,y,cres)
     ! complex dot product: cres=conj(x)*y
     implicit none
@@ -386,9 +390,9 @@ contains
     real(nk), dimension(:), allocatable :: a,b,c,d
 
     allocate(a(n),b(n),c(n),d(n))
-    a=dreal(x(:)); b=dimag(x(:)); 
+    a=dreal(x(:)); b=dimag(x(:));
     c=dreal(y(:)); d=dimag(y(:))
-    
+
     call Dot2(n,a,c,res1)
     call Dot2(n,b,d,res2)
 

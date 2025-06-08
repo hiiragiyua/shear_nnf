@@ -1937,8 +1937,6 @@ subroutine set_options()
   character*128 command
   integer nextline
   integer istat(MPI_STATUS_SIZE),ierr
-  integer :: inonNewtonian
-  real(8) :: mu_0, mu_inf, lambda, nnf
 
   call hre_reader(ihre_error) ! read some run options from hre3.dat
 
