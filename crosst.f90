@@ -1623,8 +1623,8 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
         call fourxz(wxc,wx,tmpxzr,1,1)
         call fourxz(uzc+wxc,uz,tmpxzr,1,1)
 
-        do k = 0, mz1
-           do i = 0, mx1
+        do k = 1, mz1
+           do i = 1, mx1
            ! 対称テンソル D_ij の要素（中央差分/他で得た値）
               Dxx = ux(i,k)
               Dyy = vy(i,k)
@@ -1653,8 +1653,8 @@ subroutine hvhgt(phic,ome2c,u00,w00,rhvc,rhgc, &
         call fourxz(vyc, Tyz, tmpxzr, -1, 1)
         call fourxz(vzc, Tzz, tmpxzr, -1, 1)
 
-        txy00(j) = Txy(0,0)
-        tyz00(j) = Tyz(0,0)
+        txy00(j) = uyc(0,0)
+        tyz00(j) = vyc(0,0)
 
         ! スペクトル空間での演算（元のコードのまま）
         do k = 0, mz1
